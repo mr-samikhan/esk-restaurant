@@ -97,6 +97,7 @@ export default function POS() {
       }
 
       window.location.reload();
+      // navigate("/orders");
     } catch (err) {
       console.error(err);
     }
