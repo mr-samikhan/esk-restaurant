@@ -11,8 +11,8 @@
     "build": "vite build",
     "electron:build:mac": "npm run build && electron-builder --mac zip",
     "electron:build:win": "npm run build && electron-builder --win",
-    "postinstall": "electron-builder install-app-deps",
-    "rebuild": "electron-builder install-app-deps",
+    "postinstall": "npx electron-builder install-app-deps",
+    "rebuild": "npx electron-builder install-app-deps",
     "release": "npm version patch && git push origin main --follow-tags"
   },
   "repository": {
