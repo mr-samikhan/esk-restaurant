@@ -17,8 +17,8 @@
 //   });
 
 //   const licenseURL = isDev
-//     ? "http://localhost:3000/#/license"
-//     : `file://${path.join(process.cwd(), "dist/index.html")}#/license`;
+//     ? "http://localhost:3000/#/dashboard"
+//     : `file://${path.join(process.cwd(), "dist/index.html")}#/dashboard`;
 
 //   if (!isLicenseValid()) {
 //     win.loadURL(licenseURL);
@@ -44,7 +44,7 @@
 // }
 
 import path from "path";
-import { BrowserWindow, net } from "electron";
+import { app, BrowserWindow, net } from "electron";
 
 import { isLicenseValid } from "../services/license.service.js";
 import { runBackgroundSync } from "../services/sync.service.js";
@@ -58,20 +58,25 @@ export function createMainWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
+      webSecurity: false, // Helps bypass local file restrictions on production builds
     },
   });
 
-  const licenseURL = isDev
-    ? "http://localhost:3000/#/dashboard"
-    : `file://${path.join(process.cwd(), "dist/index.html")}#/dashboard`;
+  const distIndexPath = path.join(app.getAppPath(), "dist", "index.html");
 
   if (!isLicenseValid()) {
-    win.loadURL(licenseURL);
+    if (isDev) {
+      win.loadURL("http://localhost:3000/#/dashboard");
+    } else {
+      // ✅ Correct way to load local file with HashRouter route
+      win.loadFile(distIndexPath, { hash: "/dashboard" });
+    }
   } else {
     if (isDev) {
       win.loadURL("http://localhost:3000");
     } else {
-      win.loadFile(path.join(process.cwd(), "dist/index.html"));
+      // ✅ Loads main app cleanly
+      win.loadFile(distIndexPath);
     }
 
     win.webContents.once("did-finish-load", () => {
