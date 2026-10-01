@@ -1,116 +1,80 @@
 import { ipcMain, BrowserWindow } from "electron";
 
 export function registerPrinterHandlers() {
-  ipcMain.handle("print-receipt", async (event, pdfDataUri) => {
+  ipcMain.handle("print-receipt", async (event, htmlContent) => {
+    let workerWindow = null;
     try {
-      const workerWindow = new BrowserWindow({
-        show: true,
+      workerWindow = new BrowserWindow({
+        show: false,
         width: 400,
         height: 600,
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          webSecurity: false,
+        },
       });
 
-      workerWindow.webContents.on("did-finish-load", () => {
-        workerWindow.webContents.print({
-          silent: false,
-          printBackground: true,
+      // 1. Check for attached printers
+      const printers = await workerWindow.webContents.getPrintersAsync();
+      const hasPrinter = printers && printers.length > 0;
+
+      // 2. If NO printer is attached, close window and notify React to show preview
+      if (!hasPrinter) {
+        if (workerWindow && !workerWindow.isDestroyed()) {
+          workerWindow.close();
+        }
+        return {
+          success: false,
+          noPrinter: true,
+          html: htmlContent, // Return HTML back to React for preview
+        };
+      }
+
+      // 3. If printer exists, load HTML and print
+      const dataUri = `data:text/html;charset=utf-8,${encodeURIComponent(
+        htmlContent,
+      )}`;
+
+      const printPromise = new Promise((resolve, reject) => {
+        workerWindow.webContents.on("did-finish-load", async () => {
+          try {
+            await new Promise((r) => setTimeout(r, 100));
+
+            workerWindow.webContents.print(
+              {
+                silent: false,
+                printBackground: true,
+                margins: { marginType: "none" },
+              },
+              (success, errorType) => {
+                if (workerWindow && !workerWindow.isDestroyed()) {
+                  workerWindow.close();
+                }
+                if (!success && errorType !== "cancelled") {
+                  reject(new Error(errorType));
+                } else {
+                  resolve({ success: true });
+                }
+              },
+            );
+          } catch (err) {
+            reject(err);
+          }
         });
       });
 
-      await workerWindow.loadURL(pdfDataUri);
-
-      return {
-        success: true,
-      };
+      await workerWindow.loadURL(dataUri);
+      return await printPromise;
     } catch (err) {
+      if (workerWindow && !workerWindow.isDestroyed()) {
+        workerWindow.close();
+      }
+      console.error("Electron Print Error:", err);
       return {
         success: false,
         error: err.message,
       };
     }
   });
-
-  // ipcMain.handle("print-invoice", async (event, orderId) => {
-  //   try {
-  //     const order = db
-  //       .prepare("SELECT * FROM orders WHERE id = ?")
-  //       .get(orderId);
-
-  //     const items = db
-  //       .prepare("SELECT * FROM order_items WHERE order_id = ?")
-  //       .all(orderId);
-
-  //     const win = new BrowserWindow({
-  //       show: false,
-  //       width: 400,
-  //       height: 600,
-  //     });
-
-  //     const html = generateInvoiceHTML(order, items);
-
-  //     await win.loadURL(
-  //       "data:text/html;charset=utf-8," + encodeURIComponent(html),
-  //     );
-
-  //     win.webContents.on("did-finish-load", () => {
-  //       win.webContents.print(
-  //         {
-  //           silent: false, // set true for thermal printer auto-print
-  //           printBackground: true,
-  //         },
-  //         (success, error) => {
-  //           if (!success) console.error("Print failed:", error);
-  //         },
-  //       );
-  //     });
-
-  //     return { success: true };
-  //   } catch (err) {
-  //     console.error("Print error:", err.message);
-  //     return { success: false, error: err.message };
-  //   }
-  // });
-
-  // ipcMain.handle("print-receipt", async (event, html) => {
-  //   console.log("PRINT HANDLER HIT", html);
-  //   try {
-  //     const win = new BrowserWindow({
-  //       show: false,
-  //       width: 400,
-  //       height: 600,
-  //     });
-
-  //     await win.loadURL(
-  //       "data:text/html;charset=utf-8," + encodeURIComponent(html),
-  //     );
-
-  //     // IMPORTANT: wait for ready
-  //     await new Promise((resolve) => {
-  //       win.webContents.once("did-finish-load", resolve);
-  //     });
-
-  //     await new Promise((resolve) => {
-  //       setTimeout(() => {
-  //         win.webContents.print(
-  //           {
-  //             silent: false,
-  //             printBackground: true,
-  //           },
-  //           (success, errorType) => {
-  //             if (!success) {
-  //               console.error("Print failed:", errorType);
-  //             }
-  //             resolve();
-  //           },
-  //         );
-  //       }, 300); // small delay fixes race condition
-  //     });
-
-  //     win.close();
-
-  //     return { success: true };
-  //   } catch (err) {
-  //     console.error("PRINT ERROR:", err);
-  //     return { success: false, error: err.message };
-  //   }
-  // });
 }

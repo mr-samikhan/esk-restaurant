@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useInvoices } from "@/hooks/useInvoices";
 import InvoiceModal from "../components/pos/InvoiceModal";
+import ReceiptPreviewModal from "../components/pos/ReceiptPreviewModal";
 import { generateReceipt } from "../lib/receipt-generator";
 import { API } from "../constants/apiEndPoints";
 import { useSettings } from "../hooks/useSettings";
@@ -9,31 +10,58 @@ function Invoices() {
   const { invoices, loading } = useInvoices();
   const { settings } = useSettings();
 
+  // State for Invoice Details Modal
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
-  // Filter ONLY completed / paid orders for the invoice history
+  // States for Receipt Preview Modal
+  const [previewHtml, setPreviewHtml] = useState("");
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
   const completedInvoices = invoices?.filter(
     (inv) => inv.status === "completed" || inv.payment_status === "paid",
   );
 
+  // Helper to build receipt payload object
+  const createReceiptPayload = (invoice) => ({
+    ...invoice,
+    items: invoice.items || [],
+    subtotal: Number(invoice.subtotal) || Number(invoice.total_amount) || 0,
+    total: Number(invoice.total_amount) || 0,
+    discount: Number(invoice.discount) || 0,
+    kpra_tax: Number(invoice.kpra_tax) || Number(invoice.tax) || 0,
+    service_charges: Number(invoice.service_charges) || 0,
+    paid_amount:
+      Number(invoice.paid_amount) || Number(invoice.total_amount) || 0,
+    settings: settings || {},
+  });
+
+  // Action 1: Open Thermal Receipt Preview directly
+  const handlePreviewReceipt = (invoice) => {
+    const payload = createReceiptPayload(invoice);
+    const html = generateReceipt(payload, settings);
+    setPreviewHtml(html);
+    setIsPreviewOpen(true);
+  };
+
+  // Action 2: Trigger Physical Print (Fallback to Preview if no printer)
   const handlePrint = async (invoice) => {
+    console.log("invoice", invoice);
     try {
-      const html = generateReceipt(
-        {
-          order: invoice,
-          items: invoice.items || [],
-          total: Number(invoice.total_amount) || 0,
-        },
-        settings,
-      );
+      const payload = createReceiptPayload(invoice);
+      const html = generateReceipt(payload, settings);
 
       const res = await API.print.printReceipt(html);
 
-      if (res?.success) {
+      // If no printer detected, open receipt preview modal automatically
+      if (res?.noPrinter || !res?.success) {
+        setPreviewHtml(html);
+        setIsPreviewOpen(true);
+      } else if (res?.success) {
         console.log("Printed successfully");
       }
     } catch (err) {
       console.error("Print failed:", err);
+      handlePreviewReceipt(invoice);
     }
   };
 
@@ -83,7 +111,7 @@ function Invoices() {
                     </span>
                   </div>
 
-                  {/* Summary Details */}
+                  {/* Details */}
                   <div className="space-y-1 text-xs text-gray-600 mb-3">
                     <div className="flex justify-between">
                       <span>Date:</span>
@@ -101,25 +129,38 @@ function Invoices() {
                     </div>
                   </div>
 
-                  {/* Total */}
+                  {/* Total Amount */}
                   <div className="border-t pt-2 flex justify-between items-center font-bold text-base text-green-700">
                     <span>Total Paid:</span>
                     <span>Rs {total.toFixed(2)}</span>
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex gap-2 mt-4 pt-3 border-t">
+                {/* Separate Actions Bar */}
+                <div className="flex gap-1.5 mt-4 pt-3 border-t">
+                  {/* 1. View Invoice Details Modal */}
                   <button
                     onClick={() => setSelectedInvoice(invoice.id)}
-                    className="flex-1 bg-gray-800 hover:bg-gray-900 text-white text-xs font-semibold py-1.5 rounded transition-colors"
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-[11px] font-semibold py-1.5 px-1 rounded transition-colors border"
+                    title="View Invoice Details"
                   >
-                    View
+                    Details
                   </button>
 
+                  {/* 2. Preview Receipt View */}
+                  <button
+                    onClick={() => handlePreviewReceipt(invoice)}
+                    className="flex-1 bg-gray-800 hover:bg-gray-900 text-white text-[11px] font-semibold py-1.5 px-1 rounded transition-colors"
+                    title="Preview Thermal Receipt"
+                  >
+                    Preview
+                  </button>
+
+                  {/* 3. Send to Printer */}
                   <button
                     onClick={() => handlePrint(invoice)}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold py-1.5 rounded transition-colors"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold py-1.5 px-1 rounded transition-colors"
+                    title="Print Receipt"
                   >
                     Print
                   </button>
@@ -130,10 +171,18 @@ function Invoices() {
         </div>
       )}
 
+      {/* Structured Details Modal */}
       <InvoiceModal
         invoiceId={selectedInvoice}
         open={!!selectedInvoice}
         onClose={() => setSelectedInvoice(null)}
+      />
+
+      {/* Thermal Receipt Visual Preview Modal */}
+      <ReceiptPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        htmlContent={previewHtml}
       />
     </div>
   );

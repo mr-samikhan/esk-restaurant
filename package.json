@@ -1,5 +1,5 @@
 {
-  "name": "eskpos",
+  "name": "eskrestaurant",
   "version": "1.0.6",
   "description": "Local Restaurant POS System",
   "author": "mr-samikhan",
@@ -17,16 +17,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mr-samikhan/electron-pos.git"
+    "url": "https://github.com/mr-samikhan/esk-restaurant.git"
   },
   "build": {
-    "appId": "com.mr-samikhan.eskpos",
+    "appId": "com.mr-samikhan.eskrestaurant",
     "productName": "ESK",
     "publish": [
       {
         "provider": "github",
         "owner": "mr-samikhan",
-        "repo": "electron-pos"
+        "repo": "esk-restaurant"
       }
     ],
     "files": [

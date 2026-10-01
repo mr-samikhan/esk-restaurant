@@ -1,0 +1,46 @@
+name: Build/Release Electron App
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# ADD THIS SECTION:
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build React and Electron
+        # THE FIX: Use bash shell on both OS to run the correct script
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            npm run electron:build:mac
+          elif [ "$RUNNER_OS" == "Windows" ]; then
+            npm run electron:build:win
+          else
+            echo "Unknown OS: $RUNNER_OS"
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
