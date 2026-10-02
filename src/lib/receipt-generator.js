@@ -146,6 +146,7 @@
 // };
 
 export const generateReceipt = (saleData = {}) => {
+  console.log("saleData", saleData);
   // 1. Safe Settings & Business Info Extraction
   const settings = saleData.settings || {};
 
@@ -196,7 +197,7 @@ export const generateReceipt = (saleData = {}) => {
       saleData.total_amount ||
       saleData.total,
   );
-  const discount = safeNum(saleData.discount);
+  const discount = safeNum(saleData.discount || saleData.discount_amount || 0);
 
   // KPRA Tax calculation
   const kpraRate = safeNum(saleData.kpra_tax_rate || settings.kpra_tax_rate);

@@ -10,10 +10,13 @@ import Customers from "@/pages/Customers";
 // import Kitchen from "@/pages/Kitchen";
 import Invoices from "@/pages/Invoices";
 import Settings from "@/pages/Settings";
+import Reports from "./pages/Reports";
+import Users from "./pages/Users";
 
 export const pagesConfig = {
   Pages: {
     dashboard: Dashboard,
+    Reports: Reports,
     POS: POS,
     Orders: Orders,
     Categories: Categories,
@@ -22,6 +25,7 @@ export const pagesConfig = {
     Customers: Customers,
     // Kitchen: Kitchen,
     Invoices: Invoices,
+    Users: Users,
     settings: Settings,
   },
 

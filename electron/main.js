@@ -15,6 +15,7 @@ import { tableHandlers } from "./handlers/table.handlers.js";
 import { invoiceHanlders } from "./handlers/invoices.handlers.js";
 
 import { orderHandlers } from "./handlers/orders.handler.js";
+import { reportHandlers } from "./handlers/reports.handlers.js";
 
 import { createMainWindow } from "./windows/mainWindow.js";
 
@@ -36,6 +37,7 @@ app.whenReady().then(() => {
   orderHandlers();
   tableHandlers();
   invoiceHanlders();
+  reportHandlers();
 
   createMainWindow();
 });

@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { dbService } from "@/lib/db-service";
-import { translations } from "@/lib/translations";
 import PageHeader from "../components/pos/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -16,13 +15,14 @@ import { Button } from "@/components/ui/button";
 import {
   Download,
   TrendingUp,
-  Wallet,
-  Users,
-  ArrowUpRight,
-  Badge,
+  Receipt,
+  Utensils,
+  CreditCard,
+  ShoppingBag,
   CalendarIcon,
+  Percent,
 } from "lucide-react";
-import { format, subDays, startOfMonth, endOfMonth } from "date-fns";
+import { format, subDays, startOfMonth } from "date-fns";
 import {
   BarChart,
   Bar,
@@ -37,51 +37,39 @@ import {
 } from "recharts";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import { useRef } from "react";
 
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  PopoverAnchor,
 } from "@/components/ui/popover";
 
 export default function Reports() {
   const [range, setRange] = useState("monthly");
-  // date is for the Calendar UI
   const [date, setDate] = useState({
     from: startOfMonth(new Date()),
     to: new Date(),
   });
 
-  // dateFilters is what the useQuery uses
   const [dateFilters, setDateFilters] = useState({
     start: format(startOfMonth(new Date()), "yyyy-MM-dd"),
     end: format(new Date(), "yyyy-MM-dd"),
   });
 
-  const { data: reportData, isLoading } = useQuery({
-    queryKey: ["reports", range, dateFilters],
-    queryFn: () =>
-      dbService.getDetailedReports({
-        range,
-        startDate: dateFilters.start,
-        endDate: dateFilters.end,
-      }),
-  });
-
-  // Update dateFilters whenever the calendar date range changes
-  useEffect(() => {
-    if (range === "custom" && date?.from && date?.to) {
-      setDateFilters({
-        start: format(date.from, "yyyy-MM-dd"),
-        end: format(date.to, "yyyy-MM-dd"),
-      });
-    }
-  }, [date, range]);
-
+  // Handle Range or Calendar Date Changes cleanly
   useEffect(() => {
     const today = new Date();
+
+    if (range === "custom") {
+      if (date?.from && date?.to) {
+        setDateFilters({
+          start: format(date.from, "yyyy-MM-dd"),
+          end: format(date.to, "yyyy-MM-dd"),
+        });
+      }
+      return;
+    }
+
     let start;
     let end = format(today, "yyyy-MM-dd");
 
@@ -89,13 +77,14 @@ export default function Reports() {
       case "daily":
         start = end;
         break;
-      case "yesterday":
+      case "yesterday": {
         const yesterday = subDays(today, 1);
         start = format(yesterday, "yyyy-MM-dd");
-        end = start; // End date is also yesterday to lock the range to one day
+        end = start;
         break;
+      }
       case "weekly":
-        start = format(subDays(today, 6), "yyyy-MM-dd"); // Last 7 days including today
+        start = format(subDays(today, 6), "yyyy-MM-dd");
         break;
       case "monthly":
         start = format(startOfMonth(today), "yyyy-MM-dd");
@@ -108,27 +97,60 @@ export default function Reports() {
     }
 
     setDateFilters({ start, end });
-  }, [range]);
+  }, [range, date]);
 
-  // Calculate Summary Totals
+  // Fetch Report Data from Electron IPC
+  const { data: response, isLoading } = useQuery({
+    queryKey: ["reports", range, dateFilters],
+    queryFn: () =>
+      dbService.getDetailedReports({
+        range,
+        startDate: dateFilters.start,
+        endDate: dateFilters.end,
+      }),
+  });
+
+  // Extract variables with full fallbacks
+  const salesData = response?.sales || [];
+  const summaryData = response?.summary || {};
+
+  console.log("response", response);
+
+  // Metrics Calculations (using summary from backend with frontend fallbacks)
   const totalSales =
-    reportData?.sales?.reduce((sum, s) => sum + s.revenue, 0) || 0;
-  const totalCash = reportData?.sales?.reduce((sum, s) => sum + s.cash, 0) || 0;
-  const totalDebt =
-    reportData?.sales?.reduce((sum, s) => sum + s.credit, 0) || 0;
+    summaryData.gross_sales ??
+    salesData.reduce((sum, s) => sum + (s.revenue || 0), 0);
 
-  const totalProfit =
-    reportData?.sales?.reduce((sum, s) => sum + s.profit, 0) || 0;
+  const totalKpraTax =
+    summaryData.total_kpra_tax ??
+    salesData.reduce((sum, s) => sum + (s.kpra_tax || s.tax || 0), 0);
 
-  const reportRef = useRef(null); // Reference to the area you want to export
+  const netSales = summaryData.net_sales ?? totalSales - totalKpraTax;
+
+  const totalOrders =
+    summaryData.total_orders ??
+    salesData.reduce((sum, s) => sum + (s.order_count || 0), 0);
+
+  const avgOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+
+  const totalDineIn = salesData.reduce((sum, s) => sum + (s.dine_in || 0), 0);
+  const totalTakeaway = salesData.reduce(
+    (sum, s) => sum + (s.takeaway || 0),
+    0,
+  );
+  const totalDelivery = salesData.reduce(
+    (sum, s) => sum + (s.delivery || 0),
+    0,
+  );
+
+  const reportRef = useRef(null);
 
   const exportPDF = async () => {
     const element = reportRef.current;
     if (!element) return;
 
-    // Use html2canvas to capture the charts/cards as an image
     const canvas = await html2canvas(element, {
-      scale: 2, // Higher scale for better quality
+      scale: 2,
       useCORS: true,
       logging: false,
     });
@@ -140,83 +162,63 @@ export default function Reports() {
     const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
     pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`Business_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+    pdf.save(`Restaurant_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Business Reports"
-        subtitle="Analyze financial growth and stock value"
+        title="Restaurant Reports"
+        subtitle="Track sales, KPRA tax collected, and order metrics"
       >
-        {/* <div className="flex items-center gap-3">
-          <Select value={range} onValueChange={setRange}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="daily">Daily</SelectItem>
-              <SelectItem value="weekly">Weekly</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="yearly">Yearly</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={exportPDF} variant="outline">
-            <Download className="mr-2 h-4 w-4" /> Export PDF
-          </Button>
-        </div> */}
-
         <div className="flex items-center gap-3">
           <Select value={range} onValueChange={setRange}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="w-36">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="daily">Daily</SelectItem>
+              <SelectItem value="daily">Today</SelectItem>
               <SelectItem value="yesterday">Yesterday</SelectItem>
-              <SelectItem value="weekly">Weekly</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="yearly">Yearly</SelectItem>
+              <SelectItem value="weekly">This Week</SelectItem>
+              <SelectItem value="monthly">This Month</SelectItem>
+              <SelectItem value="yearly">This Year</SelectItem>
               <SelectItem value="custom">Custom Range</SelectItem>
             </SelectContent>
           </Select>
 
-          {/* Show the Calendar only if "Custom" is selected */}
           {range === "custom" && (
-            <div className="grid gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-[280px] justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date?.from ? (
-                      date.to ? (
-                        <>
-                          {format(date.from, "LLL dd, y")} -{" "}
-                          {format(date.to, "LLL dd, y")}
-                        </>
-                      ) : (
-                        format(date.from, "LLL dd, y")
-                      )
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-[260px] justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date?.from ? (
+                    date.to ? (
+                      <>
+                        {format(date.from, "LLL dd, y")} -{" "}
+                        {format(date.to, "LLL dd, y")}
+                      </>
                     ) : (
-                      <span>Pick a date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={date?.from}
-                    selected={date}
-                    onSelect={setDate}
-                    numberOfMonths={2}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+                      format(date.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={date?.from}
+                  selected={date}
+                  onSelect={setDate}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
           )}
 
           <Button onClick={exportPDF} variant="outline">
@@ -225,109 +227,90 @@ export default function Reports() {
         </div>
       </PageHeader>
 
-      {/* Summary Cards */}
+      {/* Main Report Container */}
       <div ref={reportRef} className="p-4 bg-white space-y-6 rounded-xl">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* KPI Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="border-emerald-100 bg-emerald-50/30">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-emerald-600">
-                Total Revenue
+              <CardTitle className="text-sm font-medium text-emerald-700">
+                Gross Sales
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-emerald-900">
+              <div className="text-2xl font-bold text-emerald-950">
                 Rs. {totalSales.toLocaleString()}
               </div>
               <p className="text-xs text-emerald-600 flex items-center mt-1">
-                <TrendingUp className="w-3 h-3 mr-1" /> Target tracking active
+                <TrendingUp className="w-3.5 h-3.5 mr-1" /> Total billed amount
               </p>
             </CardContent>
           </Card>
-          <Card className="border-blue-100 bg-blue-50/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-blue-600">
-                Cash Received
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-900">
-                Rs. {totalCash.toLocaleString()}
-              </div>
-              <p className="text-xs text-blue-600 flex items-center mt-1">
-                <Wallet className="w-3 h-3 mr-1" /> Direct liquidity
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-red-100 bg-red-50/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-red-600">
-                Outstanding Debt
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-900">
-                Rs. {totalDebt.toLocaleString()}
-              </div>
-              <p className="text-xs text-red-600 flex items-center mt-1">
-                <Users className="w-3 h-3 mr-1" /> Accounts receivable
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="border-indigo-100 bg-indigo-50/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-indigo-600">
-                Net Profit
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-indigo-900">
-                {"Rs."} {totalProfit.toLocaleString()}
-              </div>
-              <p className="text-xs text-indigo-600 mt-1">
-                Actual earnings after costs
-              </p>
-            </CardContent>
-          </Card>
+
           <Card className="border-amber-100 bg-amber-50/30">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-amber-600">
-                Inventory Value
+              <CardTitle className="text-sm font-medium text-amber-700">
+                KPRA Tax Collected
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-amber-900">
-                Rs. {(reportData?.inventory?.total_cost || 0).toLocaleString()}
+              <div className="text-2xl font-bold text-amber-950">
+                Rs. {totalKpraTax.toLocaleString()}
               </div>
-              <div className="flex justify-between items-center mt-1">
-                <p className="text-[10px] text-amber-600 uppercase font-semibold">
-                  Warehouse Cost
-                </p>
-                <p className="text-[10px] text-amber-700">
-                  Retail: Rs.{" "}
-                  {(reportData?.inventory?.retail_value || 0).toLocaleString()}
-                </p>
-              </div>
+              <p className="text-xs text-amber-600 flex items-center mt-1">
+                <Percent className="w-3.5 h-3.5 mr-1" /> Tax payable to KPRA
+              </p>
             </CardContent>
           </Card>
-          <Line
-            type="monotone"
-            dataKey="profit"
-            name="Net Profit"
-            stroke="#10b981"
-            strokeWidth={2}
-            strokeDasharray="5 5"
-          />
+
+          <Card className="border-indigo-100 bg-indigo-50/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-indigo-700">
+                Net Sales (Excl. Tax)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-indigo-950">
+                Rs. {netSales.toLocaleString()}
+              </div>
+              <p className="text-xs text-indigo-600 flex items-center mt-1">
+                <Receipt className="w-3.5 h-3.5 mr-1" /> Actual revenue
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-blue-100 bg-blue-50/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-blue-700">
+                Orders & Avg Order Value
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-950">
+                {totalOrders}{" "}
+                <span className="text-xs font-normal text-slate-500">
+                  Orders
+                </span>
+              </div>
+              <p className="text-xs text-blue-600 flex items-center mt-1">
+                <ShoppingBag className="w-3.5 h-3.5 mr-1" /> Avg: Rs.{" "}
+                {avgOrderValue.toFixed(0)} / Order
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
+        {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Sales Trend Chart */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Revenue Over Time</CardTitle>
+              <CardTitle className="text-base">
+                Sales & KPRA Tax Trend
+              </CardTitle>
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={reportData?.sales}>
+                <LineChart data={salesData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
@@ -347,28 +330,38 @@ export default function Reports() {
                       boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
                     }}
                   />
+                  <Legend iconType="circle" />
                   <Line
                     type="monotone"
                     dataKey="revenue"
+                    name="Gross Sales"
                     stroke="#4f46e5"
                     strokeWidth={3}
-                    dot={{ r: 4 }}
-                    activeDot={{ r: 6 }}
+                    dot={{ r: 3 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="kpra_tax"
+                    name="KPRA Tax"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    strokeDasharray="4 4"
+                    dot={{ r: 2 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
-          {/* Cash vs Debt Comparison */}
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                Cash Collection vs. Credit
+                Payment Method Breakdown
               </CardTitle>
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={reportData?.sales}>
+                <BarChart data={salesData}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
@@ -385,76 +378,61 @@ export default function Reports() {
                   <Legend iconType="circle" />
                   <Bar
                     dataKey="cash"
-                    name="Cash Received"
+                    name="Cash"
                     fill="#10b981"
                     radius={[4, 4, 0, 0]}
                   />
                   <Bar
-                    dataKey="credit"
-                    name="Pending Debt"
-                    fill="#f43f5e"
+                    dataKey="card"
+                    name="Card / Digital"
+                    fill="#3b82f6"
                     radius={[4, 4, 0, 0]}
                   />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
-
-          {/* Inventory Value (Quick Report) */}
-          <Card className="lg:col-span-2">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">
-                Current Stock Asset Value
-              </CardTitle>
-              <Badge variant="outline">Live Valuation</Badge>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="space-y-1">
-                  <p className="text-xs text-slate-500 uppercase">Cost Value</p>
-                  <p className="text-xl font-bold">
-                    Rs. {reportData?.inventory?.total_cost?.toLocaleString()}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-slate-500 uppercase">
-                    Retail Value
-                  </p>
-                  <p className="text-xl font-bold text-indigo-600">
-                    Rs. {reportData?.inventory?.retail_value?.toLocaleString()}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-slate-500 uppercase">
-                    Potential Profit
-                  </p>
-                  <p className="text-xl font-bold text-emerald-600">
-                    Rs.{" "}
-                    {(
-                      reportData?.inventory?.retail_value -
-                      reportData?.inventory?.total_cost
-                    )?.toLocaleString()}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-slate-500 uppercase">
-                    Stock Health
-                  </p>
-                  <p className="text-lg font-medium text-amber-600">
-                    Average Margin:{" "}
-                    {(
-                      ((reportData?.inventory?.retail_value -
-                        reportData?.inventory?.total_cost) /
-                        reportData?.inventory?.retail_value) *
-                      100
-                    ).toFixed(1)}
-                    %
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
+
+        {/* Order Types Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Order Type Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+              <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
+                <Utensils className="w-5 h-5 mx-auto text-indigo-600 mb-1" />
+                <p className="text-xs text-slate-500 uppercase font-semibold">
+                  Dine-In
+                </p>
+                <p className="text-xl font-bold text-slate-800">
+                  {totalDineIn} Orders
+                </p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
+                <ShoppingBag className="w-5 h-5 mx-auto text-emerald-600 mb-1" />
+                <p className="text-xs text-slate-500 uppercase font-semibold">
+                  Takeaway
+                </p>
+                <p className="text-xl font-bold text-slate-800">
+                  {totalTakeaway} Orders
+                </p>
+              </div>
+
+              <div className="p-4 rounded-lg bg-slate-50 border border-slate-100">
+                <CreditCard className="w-5 h-5 mx-auto text-amber-600 mb-1" />
+                <p className="text-xs text-slate-500 uppercase font-semibold">
+                  Delivery
+                </p>
+                <p className="text-xl font-bold text-slate-800">
+                  {totalDelivery} Orders
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

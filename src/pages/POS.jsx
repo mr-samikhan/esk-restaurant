@@ -105,7 +105,7 @@ export default function POS() {
 
   if (!order) {
     return (
-      <div className="h-full flex flex-col overflow-hidden">
+      <div className="h-full flex flex-col overflow-hidden p-3">
         <PageHeader title={t.pos} actionLabel={t.pos} subtitle={t.pos_title} />
         <div className="p-10 text-center text-gray-500">
           No active table selected

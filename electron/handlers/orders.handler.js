@@ -214,25 +214,40 @@ export function orderHandlers() {
     }
   });
 
-  ipcMain.handle("db-update-order-item-qty", (event, payload) => {
-    try {
-      const { id, qty, total } = payload;
+  ipcMain.handle("db-update-order-item-qty", (e, payload) => {
+    const { orderId, id: itemId, qty, total } = payload || {};
 
-      db.prepare(
+    // Update order_items by order_id AND item_id
+    db.prepare(
+      `
+    UPDATE order_items
+    SET qty = ?,
+        total = ?
+    WHERE order_id = ? AND item_id = ?
+  `,
+    ).run(qty, total, orderId, itemId);
+
+    // Recalculate grand total for the order
+    const result = db
+      .prepare(
         `
-      UPDATE order_items
-      SET qty = ?, total = ?
-      WHERE id = ?
-    `,
-      ).run(qty, total, id);
+    SELECT COALESCE(SUM(total), 0) as grandTotal
+    FROM order_items
+    WHERE order_id = ?
+  `,
+      )
+      .get(orderId);
 
-      return { success: true };
-    } catch (err) {
-      return {
-        success: false,
-        error: err.message,
-      };
-    }
+    db.prepare(
+      `
+    UPDATE orders
+    SET total_amount = ?,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `,
+    ).run(result.grandTotal, orderId);
+
+    return { success: true, total: result.grandTotal };
   });
 
   ipcMain.handle("db-delete-order-item", (event, id) => {

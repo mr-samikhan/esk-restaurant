@@ -71,29 +71,54 @@ export function useCart(activeOrder) {
 
   // INCREASE QTY
   const increaseQty = async (id) => {
+    let targetItem = null;
+
     const updated = cart.map((i) => {
       if (i.id === id) {
-        const qty = i.qty + 1;
+        const qty = (i.qty || 1) + 1;
         const total = qty * i.price;
-
-        API.orders.updateItemQty({ id, qty, total });
-
+        targetItem = { id: i.id, qty, total };
         return { ...i, qty, total };
       }
       return i;
     });
 
     setCart(updated);
+
+    if (targetItem && activeOrder?.id) {
+      await API.orders.updateItemQty({
+        orderId: activeOrder.id,
+        id: targetItem.id, // item.id (product ID)
+        qty: targetItem.qty,
+        total: targetItem.total,
+      });
+    }
   };
 
   // DECREASE QTY
-  const decreaseQty = (id) => {
-    const updated = cart.map((i) =>
-      i.id === id && i.qty > 1
-        ? { ...i, qty: i.qty - 1, total: (i.qty - 1) * i.price }
-        : i,
-    );
+  const decreaseQty = async (id) => {
+    let targetItem = null;
+
+    const updated = cart.map((i) => {
+      if (i.id === id && i.qty > 1) {
+        const qty = i.qty - 1;
+        const total = qty * i.price;
+        targetItem = { id: i.id, qty, total };
+        return { ...i, qty, total };
+      }
+      return i;
+    });
+
     setCart(updated);
+
+    if (targetItem && activeOrder?.id) {
+      await API.orders.updateItemQty({
+        orderId: activeOrder.id,
+        id: targetItem.id,
+        qty: targetItem.qty,
+        total: targetItem.total,
+      });
+    }
   };
 
   const getTotal = () => {

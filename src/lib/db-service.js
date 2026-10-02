@@ -20,10 +20,15 @@ export const dbService = {
   updateUser: async (data) =>
     await ipcRenderer.invoke("auth-update-user", data),
 
-  changePassword: async (data) =>
-    await ipcRenderer.invoke("auth-change-password", data),
-
   deleteUser: async (id) => await ipcRenderer.invoke("auth-delete-user", id),
+  changePassword: async ({ id, old_password, new_password }) =>
+    await ipcRenderer.invoke("auth-change-password", {
+      id,
+      old_password,
+      new_password,
+    }),
+  resetPassword: async ({ username, newPassword }) =>
+    await ipcRenderer.invoke("auth-reset-password", { username, newPassword }),
   //end of Auth
   // --- Backup & Cloud ---
   exportLocalBackup: async () => {
@@ -223,17 +228,61 @@ export const dbService = {
 
   // --- Reporting & Analytics ---
   getDetailedReports: async ({ range, startDate, endDate }) => {
-    // Use window.ipcRenderer consistently
     if (!ipcRenderer) {
-      console.error("IPC Renderer not found");
-      return { sales: [], inventory: {} };
+      console.error("IPC Renderer not available");
+      return {
+        summary: {
+          gross_sales: 0,
+          total_kpra_tax: 0,
+          net_sales: 0,
+          total_orders: 0,
+          avg_order_value: 0,
+        },
+        sales: [],
+        paymentBreakdown: [],
+        topSellingItems: [],
+      };
     }
 
-    return await ipcRenderer.invoke("db-get-detailed-reports", {
-      range,
-      startDate,
-      endDate,
-    });
+    try {
+      const response = await ipcRenderer.invoke("db-get-detailed-reports", {
+        range,
+        startDate,
+        endDate,
+      });
+
+      if (response?.success) {
+        return response;
+      }
+
+      console.error("Report fetch error from backend:", response?.error);
+      return {
+        summary: {
+          gross_sales: 0,
+          total_kpra_tax: 0,
+          net_sales: 0,
+          total_orders: 0,
+          avg_order_value: 0,
+        },
+        sales: [],
+        paymentBreakdown: [],
+        topSellingItems: [],
+      };
+    } catch (error) {
+      console.error("Failed to invoke db-get-detailed-reports:", error);
+      return {
+        summary: {
+          gross_sales: 0,
+          total_kpra_tax: 0,
+          net_sales: 0,
+          total_orders: 0,
+          avg_order_value: 0,
+        },
+        sales: [],
+        paymentBreakdown: [],
+        topSellingItems: [],
+      };
+    }
   },
 
   resetLicense: async () => {

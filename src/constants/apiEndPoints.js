@@ -64,4 +64,10 @@ export const API = {
     getById: async (id) => await dbService.getInvoice(id),
     print: async (html) => await dbService.printReceipt(html),
   },
+  auth: {
+    getUsers: () => dbService.getUsers(),
+    createUser: (data) => dbService.createUser(data),
+    updateUser: (id, data) => dbService.updateUser({ id, data }),
+    deleteUser: (id) => dbService.deleteUser(id),
+  },
 };
