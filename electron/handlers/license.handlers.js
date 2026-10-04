@@ -1,68 +1,342 @@
+// import fs from "fs";
+// import path from "path";
+
+// import { ipcMain, app, dialog, BrowserWindow } from "electron";
+
+// import { encryptData, getDeviceId } from "../utils/crypto.js";
+
+// import { getLicenseInfo, saveLicense } from "../services/license.service.js";
+
+// import { verifyLicenseOnline } from "../firebase/firebase-config.js";
+
+// const LICENSE_PATH = path.join(app.getPath("userData"), "app.lic");
+
+// const isDev = process.env.NODE_ENV === "development";
+
+// export function registerLicenseHandlers() {
+//   // GET DEVICE ID
+//   ipcMain.handle("get-device-id", () => {
+//     return getDeviceId();
+//   });
+
+//   // ACTIVATE LICENSE
+//   ipcMain.handle("activate-license", async (event, encryptedData) => {
+//     try {
+//       fs.writeFileSync(LICENSE_PATH, encryptedData.trim());
+
+//       return { success: true };
+//     } catch (err) {
+//       return {
+//         success: false,
+//         error: err.message,
+//       };
+//     }
+//   });
+
+//   // LICENSE INFO
+//   ipcMain.handle("get-license-info", () => {
+//     try {
+//       return getLicenseInfo();
+//     } catch (err) {
+//       return null;
+//     }
+//   });
+
+//   // RESET LICENSE
+//   ipcMain.handle("reset-license", (event) => {
+//     try {
+//       if (fs.existsSync(LICENSE_PATH)) {
+//         fs.unlinkSync(LICENSE_PATH);
+//       }
+
+//       const win = BrowserWindow.fromWebContents(event.sender);
+
+//       const licenseURL = isDev
+//         ? "http://localhost:3000/#/license"
+//         : `file://${path.join(process.cwd(), "dist/index.html")}#/license`;
+
+//       win.loadURL(licenseURL);
+
+//       return { success: true };
+//     } catch (err) {
+//       return {
+//         success: false,
+//         error: err.message,
+//       };
+//     }
+//   });
+
+//   // FORCE EXPIRE
+//   ipcMain.handle("force-expire-license", () => {
+//     try {
+//       if (fs.existsSync(LICENSE_PATH)) {
+//         fs.unlinkSync(LICENSE_PATH);
+//       }
+
+//       return {
+//         success: true,
+//       };
+//     } catch (err) {
+//       return {
+//         success: false,
+//         error: err.message,
+//       };
+//     }
+//   });
+
+//   // GENERATE TEST LICENSE
+//   ipcMain.handle("generate-test-license", async (event, { deviceId, days }) => {
+//     try {
+//       const expiryDate = new Date();
+
+//       expiryDate.setDate(expiryDate.getDate() + days);
+
+//       const data = JSON.stringify({
+//         deviceId,
+//         expiryDate: expiryDate.toISOString(),
+//         licenseKey: "OFFLINE-TEST-KEY",
+//       });
+
+//       const encrypted = encryptData(data);
+
+//       return {
+//         success: true,
+//         key: encrypted,
+//       };
+//     } catch (err) {
+//       return {
+//         success: false,
+//         error: err.message,
+//       };
+//     }
+//   });
+
+//   // SAVE LICENSE FILE
+//   ipcMain.handle("save-license-file", async (event, { key }) => {
+//     const win = BrowserWindow.fromWebContents(event.sender);
+
+//     const result = await dialog.showSaveDialog(win, {
+//       title: "Export License File",
+//       defaultPath: path.join(app.getPath("downloads"), "license.lic"),
+//       filters: [
+//         {
+//           name: "License Files",
+//           extensions: ["lic"],
+//         },
+//       ],
+//     });
+
+//     if (!result.filePath) {
+//       return { success: false };
+//     }
+
+//     fs.writeFileSync(result.filePath, key);
+
+//     return { success: true };
+//   });
+
+//   // UPLOAD LICENSE FILE
+//   ipcMain.handle("upload-license-file", async (event) => {
+//     const win = BrowserWindow.fromWebContents(event.sender);
+
+//     const result = await dialog.showOpenDialog(win, {
+//       title: "Select License File",
+//       filters: [
+//         {
+//           name: "License Files",
+//           extensions: ["lic"],
+//         },
+//       ],
+//       properties: ["openFile"],
+//     });
+
+//     if (result.canceled || result.filePaths.length === 0) {
+//       return { success: false };
+//     }
+
+//     try {
+//       const content = fs.readFileSync(result.filePaths[0], "utf8");
+
+//       fs.writeFileSync(LICENSE_PATH, content.trim());
+
+//       return { success: true };
+//     } catch (err) {
+//       return {
+//         success: false,
+//         error: err.message,
+//       };
+//     }
+//   });
+
+//   // ONLINE ACTIVATION
+//   ipcMain.handle("activate-online", async (event, inputKey, clientData) => {
+//     const result = await verifyLicenseOnline(
+//       inputKey,
+//       getDeviceId(),
+//       clientData,
+//     );
+
+//     if (!result.success) {
+//       return result;
+//     }
+
+//     const localData = {
+//       deviceId: getDeviceId(),
+//       expiryDate: result.expiryDate,
+//       licenseKey: inputKey.trim(),
+//     };
+
+//     saveLicense(localData);
+
+//     const win = BrowserWindow.fromWebContents(event.sender);
+
+//     win.webContents.send("license-status-updated", {
+//       expiryDate: result.expiryDate,
+//     });
+
+//     return {
+//       success: true,
+//     };
+//   });
+
+//   //RELAUNCH APP
+//   ipcMain.handle("relaunch-app", () => {
+//     app.relaunch();
+//     app.exit(0);
+//   });
+// }
+
 import fs from "fs";
 import path from "path";
 
-import { ipcMain, app, dialog, BrowserWindow } from "electron";
+import { ipcMain, app, dialog, BrowserWindow, net } from "electron";
+import crypto from "crypto";
 
-import { encryptData, getDeviceId } from "../utils/crypto.js";
+import {
+  getLicenseInfo,
+  saveLicense,
+  LICENSE_PATH,
+  DEVICE_ID,
+  isDev,
+  getDerivedKey,
+  getDerivedIV,
+  encryptData,
+  getDecryptedLicenseData,
+  runBackgroundSync,
+} from "../services/license.service.js";
 
-import { getLicenseInfo, saveLicense } from "../services/license.service.js";
+import {
+  verifyLicenseOnline,
+  requestLicenseOnboarding,
+  checkRemoteLicenseStatus,
+} from "../firebase/firebase-config.js";
 
-import { verifyLicenseOnline } from "../firebase/firebase-config.js";
+// const LICENSE_PATH = path.join(app.getPath("userData"), "app.lic");
 
-const LICENSE_PATH = path.join(app.getPath("userData"), "app.lic");
-
-const isDev = process.env.NODE_ENV === "development";
+// const isDev = process.env.NODE_ENV === "development";
 
 export function registerLicenseHandlers() {
   // GET DEVICE ID
-  ipcMain.handle("get-device-id", () => {
-    return getDeviceId();
-  });
+  ipcMain.handle("get-device-id", () => DEVICE_ID);
 
   // ACTIVATE LICENSE
-  ipcMain.handle("activate-license", async (event, encryptedData) => {
+  ipcMain.handle("activate-license", (event, encryptedData) => {
     try {
-      fs.writeFileSync(LICENSE_PATH, encryptedData.trim());
-
+      // Basic cleanup of the input string to remove any accidental spaces/newlines
+      const cleanData = encryptedData.trim();
+      fs.writeFileSync(LICENSE_PATH, cleanData);
       return { success: true };
     } catch (err) {
-      return {
-        success: false,
-        error: err.message,
-      };
+      return { error: err.message };
     }
   });
 
   // LICENSE INFO
-  ipcMain.handle("get-license-info", () => {
+  ipcMain.handle("get-license-info", async () => {
     try {
-      return getLicenseInfo();
+      if (!fs.existsSync(LICENSE_PATH)) return null;
+
+      const encrypted = fs.readFileSync(LICENSE_PATH, "utf8").trim();
+
+      const key = getDerivedKey();
+      const iv = getDerivedIV();
+
+      const decipher = crypto.createDecipheriv("aes-256-cbc", key, iv);
+
+      let decrypted = decipher.update(encrypted, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+
+      const localData = JSON.parse(decrypted);
+
+      // 1. Execute live cloud verification handshake
+      const remoteCheck = await checkRemoteLicenseStatus(localData.licenseKey);
+
+      if (remoteCheck.success) {
+        console.log(
+          `[LAUNCH CHECK] Cloud license document state evaluated: ${remoteCheck.status}`,
+        );
+        return {
+          ...localData,
+          status: remoteCheck.status,
+          serverExpiry: remoteCheck.serverExpiry,
+        };
+      }
+
+      // 🚨 2. CRITICAL SHIELD: INTERCEPT HARD DELETIONS
+      // If the server confirms the document does not exist, block access and purge the local file cache
+      if (remoteCheck.error === "not_found") {
+        console.warn(
+          `[SECURITY ALERT] License key ${localData.licenseKey} has been hard-deleted from Firestore! Revoking local access terms...`,
+        );
+
+        // Clear out local license file to prevent subsequent offline bypass attempts
+        if (fs.existsSync(LICENSE_PATH)) {
+          fs.unlinkSync(LICENSE_PATH);
+        }
+
+        return {
+          ...localData,
+          status: "Blocked", // 🔴 Force-locks the React frontend and sends them to the license page
+          serverExpiry: null,
+        };
+      }
+
+      // 3. SAFE OFFLINE FALLBACK RULE
+      // Only fall back to Active status if the error is purely a network connection drop ("offline")
+      console.log(
+        "[SYNC INFO] Machine running offline or server un-syncable. Reading local parameters.",
+      );
+      return {
+        ...localData,
+        status: "Active",
+      };
     } catch (err) {
+      console.error("Failed to get license info for UI pipeline:", err.message);
       return null;
     }
   });
 
   // RESET LICENSE
-  ipcMain.handle("reset-license", (event) => {
+  ipcMain.handle("reset-license", async (event) => {
     try {
       if (fs.existsSync(LICENSE_PATH)) {
         fs.unlinkSync(LICENSE_PATH);
+
+        // Notify the frontend immediately
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (isDev) {
+          win.loadURL("http://localhost:3000/#/license");
+        } else {
+          win.loadURL(
+            `file://${path.join(__dirname, "dist/index.html")}#/license`,
+          );
+        }
+
+        return { success: true };
       }
-
-      const win = BrowserWindow.fromWebContents(event.sender);
-
-      const licenseURL = isDev
-        ? "http://localhost:3000/#/license"
-        : `file://${path.join(process.cwd(), "dist/index.html")}#/license`;
-
-      win.loadURL(licenseURL);
-
-      return { success: true };
+      return { success: false, error: "No license file found." };
     } catch (err) {
-      return {
-        success: false,
-        error: err.message,
-      };
+      return { success: false, error: err.message };
     }
   });
 
@@ -70,17 +344,12 @@ export function registerLicenseHandlers() {
   ipcMain.handle("force-expire-license", () => {
     try {
       if (fs.existsSync(LICENSE_PATH)) {
-        fs.unlinkSync(LICENSE_PATH);
+        fs.unlinkSync(LICENSE_PATH); // Physically deletes the app.lic file
+        return { success: true, message: "License file removed." };
       }
-
-      return {
-        success: true,
-      };
+      return { success: false, message: "No license file found." };
     } catch (err) {
-      return {
-        success: false,
-        error: err.message,
-      };
+      return { success: false, error: err.message };
     }
   });
 
@@ -111,93 +380,117 @@ export function registerLicenseHandlers() {
     }
   });
 
-  // SAVE LICENSE FILE
+  // 1. SAVE/DOWNLOAD HANDLER (For Testing/Admin)
   ipcMain.handle("save-license-file", async (event, { key }) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-
-    const result = await dialog.showSaveDialog(win, {
+    const { filePath } = await dialog.showSaveDialog(win, {
       title: "Export License File",
       defaultPath: path.join(app.getPath("downloads"), "license.lic"),
-      filters: [
-        {
-          name: "License Files",
-          extensions: ["lic"],
-        },
-      ],
+      filters: [{ name: "License Files", extensions: ["lic"] }],
     });
 
-    if (!result.filePath) {
-      return { success: false };
+    if (filePath) {
+      fs.writeFileSync(filePath, key);
+      return { success: true };
     }
-
-    fs.writeFileSync(result.filePath, key);
-
-    return { success: true };
+    return { success: false };
   });
 
-  // UPLOAD LICENSE FILE
+  // 2. UPLOAD HANDLER (For Clients)
   ipcMain.handle("upload-license-file", async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender);
-
-    const result = await dialog.showOpenDialog(win, {
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
       title: "Select License File",
-      filters: [
-        {
-          name: "License Files",
-          extensions: ["lic"],
-        },
-      ],
+      filters: [{ name: "License Files", extensions: ["lic"] }],
       properties: ["openFile"],
     });
 
-    if (result.canceled || result.filePaths.length === 0) {
-      return { success: false };
+    if (!canceled && filePaths.length > 0) {
+      try {
+        const content = fs.readFileSync(filePaths[0], "utf8");
+        fs.writeFileSync(LICENSE_PATH, content.trim()); // Save to app data
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     }
-
-    try {
-      const content = fs.readFileSync(result.filePaths[0], "utf8");
-
-      fs.writeFileSync(LICENSE_PATH, content.trim());
-
-      return { success: true };
-    } catch (err) {
-      return {
-        success: false,
-        error: err.message,
-      };
-    }
+    return { success: false };
   });
 
   // ONLINE ACTIVATION
-  ipcMain.handle("activate-online", async (event, inputKey, clientData) => {
-    const result = await verifyLicenseOnline(
-      inputKey,
-      getDeviceId(),
-      clientData,
-    );
+  ipcMain.handle("activate-online", async (event, payload) => {
+    try {
+      const { licenseKey, clientData } = payload;
 
-    if (!result.success) {
-      return result;
+      // 1. Fire the cloud validation trigger to Firebase
+      const result = await verifyLicenseOnline(
+        licenseKey,
+        clientData.deviceId,
+        clientData,
+      );
+
+      if (result.success) {
+        // 🚨 EXPIRATION CHECK: Verify if the returned expiryDate is in the past
+        if (
+          result.expiryDate &&
+          new Date(result.expiryDate).getTime() < Date.now()
+        ) {
+          console.warn(
+            "[IPC MAIN] Cloud activation rejected: License has expired.",
+          );
+          return {
+            success: false,
+            error:
+              "License has expired. Please renew your subscription to activate.",
+          };
+        }
+
+        console.log(
+          "[IPC MAIN] Cloud activation succeeded. Writing local license file...",
+        );
+
+        // 2. Package the verified data cleanly
+        const licenseFileContent = JSON.stringify({
+          deviceId: clientData.deviceId,
+          expiryDate: result.expiryDate, // Derived from Firebase
+          licenseKey: result.licenseKey,
+        });
+
+        // 3. Encrypt and write to disk immediately BEFORE background sync runs
+        fs.writeFileSync(LICENSE_PATH, encryptData(licenseFileContent));
+
+        return { success: true };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (err) {
+      console.error("Activation handler failure:", err);
+      return { success: false, error: err.message };
     }
-
-    const localData = {
-      deviceId: getDeviceId(),
-      expiryDate: result.expiryDate,
-      licenseKey: inputKey.trim(),
-    };
-
-    saveLicense(localData);
-
-    const win = BrowserWindow.fromWebContents(event.sender);
-
-    win.webContents.send("license-status-updated", {
-      expiryDate: result.expiryDate,
-    });
-
-    return {
-      success: true,
-    };
   });
+
+  ipcMain.handle("request-license-onboarding", async (event, payload) => {
+    return await requestLicenseOnboarding(
+      payload.businessName,
+      payload.contactEmail,
+      payload.deviceId,
+    );
+  });
+
+  // // Triggers instantly from React once an onboarding activation flow completes successfully
+  // ipcMain.handle("trigger-license-verification-sync", async () => {
+  //   console.log(
+  //     "[IPC MAIN] Activation event captured from React frontend. Syncing...",
+  //   );
+  //   if (net.isOnline()) {
+  //     await runBackgroundSync(win);
+  //     return { success: true };
+  //   }
+  //   return {
+  //     success: false,
+  //     error: "Offline validation unavailable. Check network.",
+  //   };
+  // });
 
   //RELAUNCH APP
   ipcMain.handle("relaunch-app", () => {

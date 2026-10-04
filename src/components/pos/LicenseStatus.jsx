@@ -46,12 +46,14 @@
 
 import React, { useState, useEffect } from "react";
 import { dbService } from "@/lib/db-service";
+import { useNavigate } from "react-router-dom";
 
 // Access Electron's IPC safely
 const electron = window.require ? window.require("electron") : null;
 const ipcRenderer = electron ? electron.ipcRenderer : null;
 
 const LicenseStatus = () => {
+  const navigate = useNavigate();
   const [daysRemaining, setDaysRemaining] = useState(null);
 
   // Helper function to calculate days
@@ -70,6 +72,10 @@ const LicenseStatus = () => {
       console.log("info", info);
       if (info && info.expiryDate) {
         setDaysRemaining(calculateDays(info.expiryDate));
+      }
+
+      if (info?.status === "Blocked") {
+        navigate("/license");
       }
     };
     fetchExpiry();

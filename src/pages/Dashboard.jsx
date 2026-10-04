@@ -144,8 +144,8 @@ export default function Dashboard() {
         actionLabel={t.dashboard} // Translated
         subtitle="Overview of your business performance"
       />
-      {/* <LicenseStatus /> */}
-      <button onClick={handleResetClick}>Reset</button>
+      <LicenseStatus />
+      {/* <button onClick={handleResetClick}>Reset</button> */}
 
       {/* Stats Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
