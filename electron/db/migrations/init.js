@@ -254,6 +254,38 @@ export function runInitMigration(db) {
       total_due REAL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS invoices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  invoice_number TEXT UNIQUE NOT NULL,
+  order_id INTEGER NOT NULL,
+  table_id INTEGER,
+  table_name TEXT,
+  customer_id INTEGER,
+  customer_name TEXT,
+  payment_method TEXT DEFAULT 'cash',
+  subtotal DECIMAL(10,2) DEFAULT 0,
+  discount DECIMAL(10,2) DEFAULT 0,
+  kpra_tax DECIMAL(10,2) DEFAULT 0,
+  kpra_percentage DECIMAL(5,2) DEFAULT 0,
+  service_charges DECIMAL(10,2) DEFAULT 0,
+  total_amount DECIMAL(10,2) DEFAULT 0,
+  status TEXT DEFAULT 'paid', -- 'paid', 'cancelled'
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id)
+);
+
+ CREATE TABLE IF NOT EXISTS expenses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT,
+    category TEXT,
+    amount REAL,
+    date TEXT,
+    payment_method TEXT,
+    is_recurring INTEGER DEFAULT 0,
+    notes TEXT,
+    created_date DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
   `);
 
   // Seed Default Tables

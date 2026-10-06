@@ -416,6 +416,7 @@ import {
   ChefHat,
   Table2,
   Users2,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -479,7 +480,8 @@ export default function Layout({ children, currentPageName }) {
     { name: t.menu_items, page: "MenuItems", icon: ChefHat },
     { name: t.tables, page: "Tables", icon: Table2 },
     { name: t.invoices, page: "Invoices", icon: Receipt },
-    { name: t.customers, page: "Customers", icon: Users },
+    // { name: t.customers, page: "Customers", icon: Users },
+    { name: t.expenses || "Expenses", page: "Expenses", icon: CreditCard },
     { name: t.users || "Users", page: "Users", icon: Users2, adminOnly: true },
     { name: t.settings, page: "Settings", icon: Settings, adminOnly: true },
   ];

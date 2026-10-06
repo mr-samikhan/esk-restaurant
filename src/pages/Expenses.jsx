@@ -1,6 +1,327 @@
-import React, { useState, useEffect } from "react";
+// import React, { useState, useEffect } from "react";
+// import { dbService } from "@/lib/db-service";
+// import { translations } from "@/lib/translations";
+// import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+// import PageHeader from "../components/pos/PageHeader";
+// import DataTable from "../components/pos/DataTable";
+// import EmptyState from "../components/pos/EmptyState";
+// import ExpenseFormDialog from "../components/pos/ExpenseFormDialog";
+// import StatCard from "../components/pos/StatCard";
+// import {
+//   Receipt,
+//   Search,
+//   Edit2,
+//   Trash2,
+//   TrendingDown,
+//   Repeat,
+// } from "lucide-react";
+// import { Input } from "@/components/ui/input";
+// import { Badge } from "@/components/ui/badge";
+// import { Button } from "@/components/ui/button";
+// import { format } from "date-fns";
+// import {
+//   AlertDialog,
+//   AlertDialogAction,
+//   AlertDialogCancel,
+//   AlertDialogContent,
+//   AlertDialogDescription,
+//   AlertDialogFooter,
+//   AlertDialogHeader,
+//   AlertDialogTitle,
+// } from "@/components/ui/alert-dialog";
+// import {
+//   Select,
+//   SelectContent,
+//   SelectItem,
+//   SelectTrigger,
+//   SelectValue,
+// } from "@/components/ui/select";
+
+// export default function Expenses() {
+//   const [showForm, setShowForm] = useState(false);
+//   const [editExpense, setEditExpense] = useState(null);
+//   const [deleteId, setDeleteId] = useState(null);
+//   const [search, setSearch] = useState("");
+//   const [categoryFilter, setCategoryFilter] = useState("all");
+//   const queryClient = useQueryClient();
+//   const [lang, setLang] = useState("en");
+
+//   useEffect(() => {
+//     dbService.getSettings().then((s) => setLang(s.language || "en"));
+//   }, []);
+
+//   const t = translations[lang] || translations.en;
+
+//   const { data: expenses = [], isLoading } = useQuery({
+//     queryKey: ["expenses"],
+//     queryFn: () => dbService.getExpenses(), // 2. Updated
+//   });
+
+//   const createMutation = useMutation({
+//     mutationFn: (data) => dbService.createExpense(data), // 3. Updated
+//     onSuccess: () => {
+//       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+//       setShowForm(false);
+//     },
+//   });
+
+//   const updateMutation = useMutation({
+//     mutationFn: ({ id, data }) => dbService.updateExpense({ id, data }), // 4. Updated
+//     onSuccess: () => {
+//       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+//       setShowForm(false);
+//       setEditExpense(null);
+//     },
+//   });
+
+//   const deleteMutation = useMutation({
+//     mutationFn: (id) => dbService.deleteExpense(id), // 5. Updated
+//     onSuccess: () => {
+//       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+//       setDeleteId(null);
+//     },
+//   });
+
+//   const handleSave = (data) => {
+//     if (editExpense) {
+//       updateMutation.mutate({ id: editExpense.id, data });
+//     } else {
+//       createMutation.mutate(data);
+//     }
+//   };
+
+//   const filtered = expenses.filter((e) => {
+//     const matchSearch = e.title?.toLowerCase().includes(search.toLowerCase());
+//     const matchCategory =
+//       categoryFilter === "all" || e.category === categoryFilter;
+//     return matchSearch && matchCategory;
+//   });
+
+//   const totalExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+//   const recurringCount = expenses.filter((e) => e.is_recurring).length;
+
+//   const categoryColors = {
+//     rent: "bg-orange-50 text-orange-700",
+//     utilities: "bg-green-50 text-green-700",
+//     salaries: "bg-blue-50 text-blue-700",
+//     supplies: "bg-purple-50 text-purple-700",
+//     marketing: "bg-pink-50 text-pink-700",
+//     transport: "bg-cyan-50 text-cyan-700",
+//     maintenance: "bg-amber-50 text-amber-700",
+//     taxes: "bg-red-50 text-red-700",
+//     insurance: "bg-indigo-50 text-indigo-700",
+//     other: "bg-slate-50 text-slate-700",
+//   };
+
+//   const columns = [
+//     {
+//       header: "Expense",
+//       render: (row) => (
+//         <div className="flex items-center gap-2">
+//           <p className="font-medium text-slate-900">{row.title}</p>
+//           {row.is_recurring && (
+//             <Repeat className="w-3.5 h-3.5 text-indigo-500" />
+//           )}
+//         </div>
+//       ),
+//     },
+//     {
+//       header: "Category",
+//       render: (row) => (
+//         <Badge
+//           className={`capitalize text-xs ${categoryColors[row.category] || ""}`}
+//         >
+//           {row.category?.replace(/_/g, " ")}
+//         </Badge>
+//       ),
+//     },
+//     {
+//       header: "Date",
+//       render: (row) => (
+//         <span className="text-slate-500">
+//           {row.date ? format(new Date(row.date), "MMM d, yyyy") : "—"}
+//         </span>
+//       ),
+//     },
+//     {
+//       header: "Payment",
+//       render: (row) => (
+//         <Badge variant="outline" className="capitalize text-xs">
+//           {row.payment_method}
+//         </Badge>
+//       ),
+//     },
+//     {
+//       header: "Amount",
+//       cellClassName: "text-right",
+//       render: (row) => (
+//         <span className="font-semibold text-rose-600">
+//           ₹{row.amount?.toLocaleString()}
+//         </span>
+//       ),
+//     },
+//     {
+//       header: "Actions",
+//       cellClassName: "text-right",
+//       render: (row) => (
+//         <div className="flex items-center justify-end gap-1">
+//           <Button
+//             variant="ghost"
+//             size="icon"
+//             className="h-8 w-8"
+//             onClick={(e) => {
+//               e.stopPropagation();
+//               setEditExpense(row);
+//               setShowForm(true);
+//             }}
+//           >
+//             <Edit2 className="w-4 h-4 text-slate-500" />
+//           </Button>
+//           <Button
+//             variant="ghost"
+//             size="icon"
+//             className="h-8 w-8"
+//             onClick={(e) => {
+//               e.stopPropagation();
+//               setDeleteId(row.id);
+//             }}
+//           >
+//             <Trash2 className="w-4 h-4 text-red-500" />
+//           </Button>
+//         </div>
+//       ),
+//     },
+//   ];
+
+//   return (
+//     <div className="space-y-6" dir={t.dir}>
+//       <PageHeader
+//         title={t.expenses} // Translated
+//         actionLabel={t.expenses} // Translated
+//         subtitle={`${expenses.length} records`}
+//         onAction={() => {
+//           setEditExpense(null);
+//           setShowForm(true);
+//         }}
+//       >
+//         <div className="flex items-center gap-3">
+//           <div className="relative">
+//             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+//             <Input
+//               placeholder={t.search}
+//               value={search}
+//               onChange={(e) => setSearch(e.target.value)}
+//               className="pl-9 w-48 sm:w-64"
+//             />
+//           </div>
+//           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+//             <SelectTrigger className="w-36">
+//               <SelectValue placeholder="Category" />
+//             </SelectTrigger>
+//             <SelectContent>
+//               <SelectItem value="all">All Categories</SelectItem>
+//               <SelectItem value="rent">Rent</SelectItem>
+//               <SelectItem value="utilities">Utilities</SelectItem>
+//               <SelectItem value="salaries">Salaries</SelectItem>
+//               <SelectItem value="supplies">Supplies</SelectItem>
+//               <SelectItem value="marketing">Marketing</SelectItem>
+//               <SelectItem value="transport">Transport</SelectItem>
+//               <SelectItem value="maintenance">Maintenance</SelectItem>
+//               <SelectItem value="taxes">Taxes</SelectItem>
+//               <SelectItem value="insurance">Insurance</SelectItem>
+//               <SelectItem value="other">Other</SelectItem>
+//             </SelectContent>
+//           </Select>
+//         </div>
+//       </PageHeader>
+
+//       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+//         <StatCard
+//           title="Total Expenses"
+//           value={`₹${totalExpenses.toLocaleString()}`}
+//           icon={TrendingDown}
+//           color="rose"
+//         />
+//         <StatCard
+//           title="This Month"
+//           value={`₹${expenses
+//             .filter((e) => {
+//               const d = new Date(e.date || e.created_date);
+//               const now = new Date();
+//               return (
+//                 d.getMonth() === now.getMonth() &&
+//                 d.getFullYear() === now.getFullYear()
+//               );
+//             })
+//             .reduce((s, e) => s + (e.amount || 0), 0)
+//             .toLocaleString()}`}
+//           icon={Receipt}
+//           color="amber"
+//         />
+//         <StatCard
+//           title="Recurring"
+//           value={recurringCount}
+//           icon={Repeat}
+//           color="indigo"
+//         />
+//       </div>
+
+//       {!isLoading && expenses.length === 0 ? (
+//         <EmptyState
+//           icon={Receipt}
+//           title="No expenses yet"
+//           description="Track your business expenses here."
+//           actionLabel="Add Expense"
+//           onAction={() => setShowForm(true)}
+//         />
+//       ) : (
+//         <DataTable
+//           columns={columns}
+//           data={filtered}
+//           isLoading={isLoading}
+//           emptyMessage="No expenses match your search"
+//         />
+//       )}
+
+//       {showForm && (
+//         <ExpenseFormDialog
+//           open={showForm}
+//           onOpenChange={(v) => {
+//             setShowForm(v);
+//             if (!v) setEditExpense(null);
+//           }}
+//           expense={editExpense}
+//           onSave={handleSave}
+//           saving={createMutation.isPending || updateMutation.isPending}
+//         />
+//       )}
+
+//       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+//         <AlertDialogContent>
+//           <AlertDialogHeader>
+//             <AlertDialogTitle>Delete Expense</AlertDialogTitle>
+//             <AlertDialogDescription>
+//               This will permanently remove this expense record.
+//             </AlertDialogDescription>
+//           </AlertDialogHeader>
+//           <AlertDialogFooter>
+//             <AlertDialogCancel>Cancel</AlertDialogCancel>
+//             <AlertDialogAction
+//               onClick={() => deleteMutation.mutate(deleteId)}
+//               className="bg-red-600 hover:bg-red-700"
+//             >
+//               Delete
+//             </AlertDialogAction>
+//           </AlertDialogFooter>
+//         </AlertDialogContent>
+//       </AlertDialog>
+//     </div>
+//   );
+// }
+
+import React, { useState } from "react";
 import { dbService } from "@/lib/db-service";
-import { translations } from "@/lib/translations";
+import { translations_ } from "@/lib/translations"; // Updated import
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import PageHeader from "../components/pos/PageHeader";
 import DataTable from "../components/pos/DataTable";
@@ -36,6 +357,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useCurrency } from "../hooks/useCurrency"; // Added
+import { useSettings } from "../hooks/useSettings"; // Added
+import { cn } from "@/lib/utils"; // Added
 
 export default function Expenses() {
   const [showForm, setShowForm] = useState(false);
@@ -44,21 +368,22 @@ export default function Expenses() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const queryClient = useQueryClient();
-  const [lang, setLang] = useState("en");
 
-  useEffect(() => {
-    dbService.getSettings().then((s) => setLang(s.language || "en"));
-  }, []);
+  const { symbol } = useCurrency(); // Added
+  const { settings } = useSettings(); // Added
 
-  const t = translations[lang] || translations.en;
+  // --- TRANSLATIONS WITH SETTINGS ---
+  const currentLang = settings?.language || "en";
+  const dir = translations_[currentLang]?.dir || "ltr";
+  const t = translations_[currentLang]?.expenses || translations_.en.expenses;
 
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ["expenses"],
-    queryFn: () => dbService.getExpenses(), // 2. Updated
+    queryFn: () => dbService.getExpenses(),
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => dbService.createExpense(data), // 3. Updated
+    mutationFn: (data) => dbService.createExpense(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       setShowForm(false);
@@ -66,7 +391,7 @@ export default function Expenses() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => dbService.updateExpense({ id, data }), // 4. Updated
+    mutationFn: ({ id, data }) => dbService.updateExpense({ id, data }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       setShowForm(false);
@@ -75,7 +400,7 @@ export default function Expenses() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => dbService.deleteExpense(id), // 5. Updated
+    mutationFn: (id) => dbService.deleteExpense(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
       setDeleteId(null);
@@ -115,7 +440,7 @@ export default function Expenses() {
 
   const columns = [
     {
-      header: "Expense",
+      header: t.expense || "Expense",
       render: (row) => (
         <div className="flex items-center gap-2">
           <p className="font-medium text-slate-900">{row.title}</p>
@@ -126,7 +451,7 @@ export default function Expenses() {
       ),
     },
     {
-      header: "Category",
+      header: t.category || "Category",
       render: (row) => (
         <Badge
           className={`capitalize text-xs ${categoryColors[row.category] || ""}`}
@@ -136,7 +461,7 @@ export default function Expenses() {
       ),
     },
     {
-      header: "Date",
+      header: t.date || "Date",
       render: (row) => (
         <span className="text-slate-500">
           {row.date ? format(new Date(row.date), "MMM d, yyyy") : "—"}
@@ -144,7 +469,7 @@ export default function Expenses() {
       ),
     },
     {
-      header: "Payment",
+      header: t.payment || "Payment",
       render: (row) => (
         <Badge variant="outline" className="capitalize text-xs">
           {row.payment_method}
@@ -152,16 +477,17 @@ export default function Expenses() {
       ),
     },
     {
-      header: "Amount",
+      header: t.amount || "Amount",
       cellClassName: "text-right",
       render: (row) => (
         <span className="font-semibold text-rose-600">
-          ₹{row.amount?.toLocaleString()}
+          {symbol}
+          {row.amount?.toLocaleString()}
         </span>
       ),
     },
     {
-      header: "Actions",
+      header: t.actions || "Actions",
       cellClassName: "text-right",
       render: (row) => (
         <div className="flex items-center justify-end gap-1">
@@ -194,11 +520,11 @@ export default function Expenses() {
   ];
 
   return (
-    <div className="space-y-6" dir={t.dir}>
+    <div className="space-y-6" dir={dir}>
       <PageHeader
-        title={t.expenses} // Translated
-        actionLabel={t.expenses} // Translated
-        subtitle={`${expenses.length} records`}
+        title={t.title || "Expenses"}
+        actionLabel={t.add_expense || "Add Expense"}
+        subtitle={`${expenses.length} ${t.records || "records"}`}
         onAction={() => {
           setEditExpense(null);
           setShowForm(true);
@@ -206,30 +532,51 @@ export default function Expenses() {
       >
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search
+              className={cn(
+                "absolute top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400",
+                dir === "rtl" ? "right-3" : "left-3",
+              )}
+            />
             <Input
-              placeholder={t.search}
+              placeholder={t.search_placeholder || "Search expenses..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 w-48 sm:w-64"
+              className={cn("w-48 sm:w-64", dir === "rtl" ? "pr-9" : "pl-9")}
             />
           </div>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-36">
-              <SelectValue placeholder="Category" />
+              <SelectValue placeholder={t.category || "Category"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="rent">Rent</SelectItem>
-              <SelectItem value="utilities">Utilities</SelectItem>
-              <SelectItem value="salaries">Salaries</SelectItem>
-              <SelectItem value="supplies">Supplies</SelectItem>
-              <SelectItem value="marketing">Marketing</SelectItem>
-              <SelectItem value="transport">Transport</SelectItem>
-              <SelectItem value="maintenance">Maintenance</SelectItem>
-              <SelectItem value="taxes">Taxes</SelectItem>
-              <SelectItem value="insurance">Insurance</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
+              <SelectItem value="all">
+                {t.all_categories || "All Categories"}
+              </SelectItem>
+              <SelectItem value="rent">{t.cat_rent || "Rent"}</SelectItem>
+              <SelectItem value="utilities">
+                {t.cat_utilities || "Utilities"}
+              </SelectItem>
+              <SelectItem value="salaries">
+                {t.cat_salaries || "Salaries"}
+              </SelectItem>
+              <SelectItem value="supplies">
+                {t.cat_supplies || "Supplies"}
+              </SelectItem>
+              <SelectItem value="marketing">
+                {t.cat_marketing || "Marketing"}
+              </SelectItem>
+              <SelectItem value="transport">
+                {t.cat_transport || "Transport"}
+              </SelectItem>
+              <SelectItem value="maintenance">
+                {t.cat_maintenance || "Maintenance"}
+              </SelectItem>
+              <SelectItem value="taxes">{t.cat_taxes || "Taxes"}</SelectItem>
+              <SelectItem value="insurance">
+                {t.cat_insurance || "Insurance"}
+              </SelectItem>
+              <SelectItem value="other">{t.cat_other || "Other"}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -237,14 +584,14 @@ export default function Expenses() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard
-          title="Total Expenses"
-          value={`₹${totalExpenses.toLocaleString()}`}
+          title={t.total_expenses || "Total Expenses"}
+          value={`${symbol}${totalExpenses.toLocaleString()}`}
           icon={TrendingDown}
           color="rose"
         />
         <StatCard
-          title="This Month"
-          value={`₹${expenses
+          title={t.this_month || "This Month"}
+          value={`${symbol}${expenses
             .filter((e) => {
               const d = new Date(e.date || e.created_date);
               const now = new Date();
@@ -259,7 +606,7 @@ export default function Expenses() {
           color="amber"
         />
         <StatCard
-          title="Recurring"
+          title={t.recurring || "Recurring"}
           value={recurringCount}
           icon={Repeat}
           color="indigo"
@@ -269,9 +616,11 @@ export default function Expenses() {
       {!isLoading && expenses.length === 0 ? (
         <EmptyState
           icon={Receipt}
-          title="No expenses yet"
-          description="Track your business expenses here."
-          actionLabel="Add Expense"
+          title={t.no_expenses_title || "No expenses yet"}
+          description={
+            t.no_expenses_desc || "Track your business expenses here."
+          }
+          actionLabel={t.add_expense || "Add Expense"}
           onAction={() => setShowForm(true)}
         />
       ) : (
@@ -279,7 +628,7 @@ export default function Expenses() {
           columns={columns}
           data={filtered}
           isLoading={isLoading}
-          emptyMessage="No expenses match your search"
+          emptyMessage={t.no_match || "No expenses match your search"}
         />
       )}
 
@@ -299,18 +648,21 @@ export default function Expenses() {
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Expense</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t.delete_title || "Delete Expense"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove this expense record.
+              {t.delete_desc ||
+                "This will permanently remove this expense record."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.cancel || "Cancel"}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteMutation.mutate(deleteId)}
               className="bg-red-600 hover:bg-red-700"
             >
-              Delete
+              {t.delete || "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

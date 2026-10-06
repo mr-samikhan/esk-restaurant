@@ -309,12 +309,12 @@ export default function Orders() {
 
                 {/* Actions Bar */}
                 <div className="mt-4 flex flex-wrap items-center gap-1.5 pt-3 border-t">
-                  <button
+                  {/* <button
                     onClick={() => openModal(order)}
                     className="bg-gray-800 hover:bg-gray-900 text-white px-2.5 py-1.5 rounded text-xs font-medium transition-colors"
                   >
                     Edit / Checkout
-                  </button>
+                  </button> */}
 
                   <button
                     onClick={() => handlePreviewReceipt(order)}

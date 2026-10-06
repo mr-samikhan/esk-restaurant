@@ -12,6 +12,7 @@ import Invoices from "@/pages/Invoices";
 import Settings from "@/pages/Settings";
 import Reports from "./pages/Reports";
 import Users from "./pages/Users";
+import Expenses from "./pages/Expenses";
 
 export const pagesConfig = {
   Pages: {
@@ -23,6 +24,7 @@ export const pagesConfig = {
     MenuItems: MenuItems,
     Tables: Tables,
     Customers: Customers,
+    Expenses: Expenses,
     // Kitchen: Kitchen,
     Invoices: Invoices,
     Users: Users,

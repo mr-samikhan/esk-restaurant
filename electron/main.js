@@ -18,6 +18,7 @@ import { orderHandlers } from "./handlers/orders.handler.js";
 import { reportHandlers } from "./handlers/reports.handlers.js";
 
 import { createMainWindow } from "./windows/mainWindow.js";
+import { expensesHandlers } from "./handlers/expense.handlers.js";
 
 dotenv.config();
 
@@ -38,6 +39,7 @@ app.whenReady().then(() => {
   tableHandlers();
   invoiceHanlders();
   reportHandlers();
+  expensesHandlers();
 
   createMainWindow();
 });

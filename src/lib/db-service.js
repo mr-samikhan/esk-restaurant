@@ -342,7 +342,8 @@ export const dbService = {
 
   // invoices
   getInvoices: () => ipcRenderer.invoke("db-get-invoices"),
-
+  deleteInvoice: async (invoiceId) =>
+    await ipcRenderer.invoke("db-delete-invoice", invoiceId),
   getInvoice: (id) => ipcRenderer.invoke("db-get-invoice", id),
 
   //tables
