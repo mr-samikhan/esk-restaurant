@@ -446,7 +446,7 @@ export default function Layout({ children, currentPageName }) {
 
   // ── App settings ─────────────────────────────────────────
   const [appSettings, setAppSettings] = useState({
-    app_name: "SwiftPOS",
+    app_name: "ESK TECH",
     language: "en",
   });
 

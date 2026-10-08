@@ -1697,7 +1697,7 @@ db.exec(`
 
 // 1. IMPROVED INITIALIZATION
 const defaultSettings = [
-  ["app_name", "SwiftPOS"],
+  ["app_name", "ESK TECH"],
   ["language", "en"],
   ["currency", "PKR"],
   ["zakat_rate", "2.5"],

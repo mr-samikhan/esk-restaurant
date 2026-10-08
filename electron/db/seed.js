@@ -14,7 +14,7 @@ export function seedDatabase(db) {
   }
 
   const defaultSettings = [
-    ["app_name", "SwiftPOS"],
+    ["app_name", "ESK TECH"],
     ["language", "en"],
     ["currency", "PKR"],
   ];
