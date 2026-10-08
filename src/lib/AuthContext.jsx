@@ -72,6 +72,8 @@ export const AuthProvider = ({ children }) => {
     return result;
   };
 
+  const isAdmin = user?.role === "admin" || false;
+
   console.log("current user", user);
 
   return (
@@ -89,6 +91,7 @@ export const AuthProvider = ({ children }) => {
         resetPassword,
         navigateToLogin: () => {},
         checkAppState: async () => true,
+        isAdmin,
       }}
     >
       {children}

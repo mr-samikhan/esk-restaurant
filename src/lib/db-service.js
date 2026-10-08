@@ -355,4 +355,44 @@ export const dbService = {
   updateTableStatus: async (id, status) =>
     await ipcRenderer.invoke("db-update-table-status", { id, status }),
   deleteTable: async (id) => await ipcRenderer.invoke("db-delete-table", id),
+
+  // --- Auto-Backup (7-Day Rotation) ---
+  runAutoBackup: async (retentionDays = 7, force = false) => {
+    try {
+      const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+      const lastBackupDate = localStorage.getItem("last_auto_backup_date");
+
+      // Prevent running multiple times on the same day unless forced
+      if (!force && lastBackupDate === today) {
+        return { skipped: true, message: "Backup already created today." };
+      }
+
+      const result = await ipcRenderer.invoke("create-auto-backup", {
+        fileName: `pos_backup_${today}.db`,
+        retentionDays,
+      });
+
+      if (result?.success) {
+        localStorage.setItem("last_auto_backup_date", today);
+      }
+
+      console.log("Auto-backup result:", result);
+      return result;
+    } catch (err) {
+      console.error("Auto-backup failed:", err.message);
+      return { error: err.message };
+    }
+  },
+
+  getAutoBackupsList: async () => {
+    try {
+      return await ipcRenderer.invoke("get-auto-backups");
+    } catch (err) {
+      return [];
+    }
+  },
+
+  openBackupFolder: async () => {
+    return await ipcRenderer.invoke("open-backup-folder");
+  },
 };

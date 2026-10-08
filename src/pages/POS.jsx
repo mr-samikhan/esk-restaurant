@@ -1,311 +1,3 @@
-// import { useState, useEffect } from "react";
-// import { useCategories } from "@/hooks/useCategories";
-// import { useItems } from "@/hooks/useItems";
-// import { useCart } from "@/hooks/useCart";
-// import { useActiveOrder } from "@/hooks/useActiveOrder";
-// import { API } from "../constants/apiEndPoints";
-// import { useNavigate } from "react-router-dom";
-// import { generateReceipt } from "../lib/receipt-generator";
-// import { useSettings } from "../hooks/useSettings";
-// import PageHeader from "../components/pos/PageHeader";
-// import { translations } from "../lib/translations";
-
-// export default function POS() {
-//   const navigate = useNavigate();
-//   const { settings } = useSettings();
-
-//   const t = translations[settings.language] || translations.en;
-
-//   const { categories } = useCategories();
-//   const [selectedCategory, setSelectedCategory] = useState(null);
-
-//   const [discount, setDiscount] = useState(0);
-//   const [serviceCharges, setServiceCharges] = useState(0);
-//   const [paymentMethod, setPaymentMethod] = useState("cash"); // 'cash' or 'online'
-//   const [customer, setCustomer] = useState(null);
-
-//   const { order } = useActiveOrder();
-//   const { items } = useItems(selectedCategory);
-
-//   const {
-//     cart,
-//     addToCart,
-//     removeItem,
-//     increaseQty,
-//     decreaseQty,
-//     getTotal,
-//     clearCart,
-//   } = useCart(order);
-
-//   // Financial Calculations
-//   const subTotal = getTotal();
-//   const discountAmount = Number(discount) || 0;
-//   const serviceChargeAmount = Number(serviceCharges) || 0;
-
-//   // KPRA Tax: 10% for Cash, 6% for Online based on Subtotal
-//   const kpraPercentage = paymentMethod === "cash" ? 0.1 : 0.06;
-//   const kpraTaxAmount = subTotal * kpraPercentage;
-
-//   const finalTotal = Math.max(
-//     0,
-//     subTotal - discountAmount + serviceChargeAmount + kpraTaxAmount,
-//   );
-
-//   const handleCheckout = async (isPrint = true) => {
-//     try {
-//       if (!order?.id) return;
-
-//       const payload = {
-//         orderId: order.id,
-//         customerId: customer?.id || null,
-//         customerName: customer?.name || "Walk-in",
-//         paymentMethod: paymentMethod,
-//         subtotal: subTotal,
-//         discount: discountAmount,
-//         serviceCharges: serviceChargeAmount,
-//         kpraTax: kpraTaxAmount,
-//         kpraPercentage: kpraPercentage * 100,
-//         total: finalTotal,
-//         status: isPrint ? "completed" : "pending",
-//       };
-
-//       const checkoutRes = await API.orders.checkout({ ...payload });
-
-//       if (!checkoutRes.success) {
-//         alert("Checkout failed");
-//         return;
-//       }
-
-//       if (isPrint) {
-//         const receipt = generateReceipt(
-//           {
-//             id: order.id,
-//             table_name: order.table_name,
-//             items: cart,
-//             subtotal: subTotal,
-//             discount: discountAmount,
-//             serviceCharges: serviceChargeAmount,
-//             kpraTax: kpraTaxAmount,
-//             paymentMethod: paymentMethod,
-//             total: finalTotal,
-//             customer_name: customer?.name,
-//           },
-//           settings,
-//         );
-
-//         await API.print.printReceipt(receipt);
-//       }
-
-//       window.location.reload();
-//       // navigate("/orders");
-//     } catch (err) {
-//       console.error(err);
-//     }
-//   };
-
-//   if (!order) {
-//     return (
-//       <div className="h-full flex flex-col overflow-hidden p-3">
-//         <PageHeader title={t.pos} actionLabel={t.pos} subtitle={t.pos_title} />
-//         <div className="p-10 text-center text-gray-500">
-//           No active table selected
-//         </div>
-//       </div>
-//     );
-//   }
-
-//   return (
-//     <div className="h-full flex flex-col overflow-hidden bg-white">
-//       <div className="px-4 pt-2 flex-shrink-0">
-//         <PageHeader title={t.pos} actionLabel={t.pos} subtitle={t.pos_title} />
-//       </div>
-
-//       <div className="flex flex-1 overflow-hidden min-h-0">
-//         {/* LEFT CATEGORIES */}
-//         <div className="w-1/5 border-r p-3 overflow-y-auto">
-//           {categories.map((cat) => (
-//             <button
-//               key={cat.id}
-//               onClick={() => setSelectedCategory(cat.id)}
-//               className="w-full p-2 mb-2 bg-gray-100 rounded text-left hover:bg-gray-200"
-//             >
-//               {cat.name}
-//             </button>
-//           ))}
-//         </div>
-
-//         {/* MIDDLE ITEMS */}
-//         <div className="flex-1 p-4 overflow-y-auto">
-//           {items.map((item) => (
-//             <div
-//               key={item.id}
-//               className="border p-3 mb-2 flex justify-between items-center rounded"
-//             >
-//               <h3>{item.name}</h3>
-//               <button
-//                 onClick={() => addToCart(item)}
-//                 className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-//               >
-//                 Add
-//               </button>
-//             </div>
-//           ))}
-//         </div>
-
-//         {/* RIGHT CART */}
-//         <div className="w-1/4 border-l p-3 flex flex-col h-full bg-white overflow-hidden">
-//           <h2 className="font-bold mb-2 text-lg flex-shrink-0">Cart</h2>
-
-//           {/* SCROLLABLE CART ITEMS ONLY */}
-//           <div className="flex-1 min-h-0 overflow-y-auto pr-1 border-b mb-2">
-//             {cart.length === 0 ? (
-//               <p className="text-gray-400 text-sm italic py-4 text-center">
-//                 Cart is empty
-//               </p>
-//             ) : (
-//               cart.map((item) => (
-//                 <div key={item.id} className="border-b py-2">
-//                   <p className="font-semibold text-sm">
-//                     {item.name || item?.item_name}
-//                   </p>
-
-//                   <div className="flex items-center gap-2 mt-1">
-//                     <button
-//                       onClick={() => decreaseQty(item.id)}
-//                       className="px-2 py-0.5 bg-gray-200 rounded font-bold hover:bg-gray-300"
-//                     >
-//                       -
-//                     </button>
-//                     <span>{item.qty}</span>
-//                     <button
-//                       onClick={() => increaseQty(item.id)}
-//                       className="px-2 py-0.5 bg-gray-200 rounded font-bold hover:bg-gray-300"
-//                     >
-//                       +
-//                     </button>
-
-//                     <span className="ml-auto font-medium text-sm">
-//                       Rs {item.total}
-//                     </span>
-//                   </div>
-
-//                   <button
-//                     onClick={() => removeItem(item.id)}
-//                     className="text-red-500 text-xs mt-1 hover:underline"
-//                   >
-//                     Remove
-//                   </button>
-//                 </div>
-//               ))
-//             )}
-//           </div>
-
-//           {/* FIXED BOTTOM CONTROLS & SUMMARY */}
-//           <div className="flex-shrink-0 space-y-2 pt-1">
-//             {/* CUSTOMER */}
-//             <div>
-//               <label className="text-xs font-semibold text-gray-600">
-//                 Customer (optional)
-//               </label>
-//               <input
-//                 className="w-full border p-1.5 rounded text-sm mt-0.5"
-//                 placeholder="Walk-in / Search customer"
-//                 value={customer?.name || ""}
-//                 onChange={(e) =>
-//                   setCustomer({ id: null, name: e.target.value })
-//                 }
-//               />
-//             </div>
-
-//             {/* PAYMENT METHOD DROPDOWN */}
-//             <div>
-//               <label className="text-xs font-semibold text-gray-600">
-//                 Payment Method
-//               </label>
-//               <select
-//                 className="w-full border p-1.5 rounded text-sm mt-0.5 bg-white"
-//                 value={paymentMethod}
-//                 onChange={(e) => setPaymentMethod(e.target.value)}
-//               >
-//                 <option value="cash">Cash (10% KPRA)</option>
-//                 <option value="online">Online (6% KPRA)</option>
-//               </select>
-//             </div>
-
-//             {/* DISCOUNT & SERVICE CHARGES */}
-//             <div className="grid grid-cols-2 gap-2">
-//               <div>
-//                 <label className="text-xs font-semibold text-gray-600">
-//                   Discount
-//                 </label>
-//                 <input
-//                   type="number"
-//                   className="w-full border p-1.5 rounded text-sm mt-0.5"
-//                   value={discount}
-//                   onChange={(e) => setDiscount(Number(e.target.value))}
-//                   placeholder="0"
-//                 />
-//               </div>
-//               <div>
-//                 <label className="text-xs font-semibold text-gray-600">
-//                   Service Charges
-//                 </label>
-//                 <input
-//                   type="number"
-//                   className="w-full border p-1.5 rounded text-sm mt-0.5"
-//                   value={serviceCharges}
-//                   onChange={(e) => setServiceCharges(Number(e.target.value))}
-//                   placeholder="0"
-//                 />
-//               </div>
-//             </div>
-
-//             {/* SUMMARY BREAKDOWN */}
-//             <div className="border-t pt-2 space-y-1 text-xs">
-//               <div className="flex justify-between text-gray-600">
-//                 <span>Subtotal:</span>
-//                 <span>Rs {subTotal.toFixed(2)}</span>
-//               </div>
-//               <div className="flex justify-between text-gray-600">
-//                 <span>KPRA ({paymentMethod === "cash" ? "10%" : "6%"}):</span>
-//                 <span>Rs {kpraTaxAmount.toFixed(2)}</span>
-//               </div>
-//               <div className="flex justify-between font-bold text-base text-gray-800 border-t pt-1">
-//                 <span>Total:</span>
-//                 <span>Rs {finalTotal.toFixed(2)}</span>
-//               </div>
-//             </div>
-
-//             {/* ACTION BUTTONS */}
-//             {cart.length > 0 && (
-//               <div className="pt-1 space-y-1.5">
-//                 <button
-//                   className="w-full bg-green-600 text-white py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors"
-//                   onClick={() => handleCheckout(true)}
-//                 >
-//                   Pay with Print
-//                 </button>
-//                 <button
-//                   className="w-full bg-yellow-600 text-white py-2 rounded text-sm font-medium hover:bg-yellow-700 transition-colors"
-//                   onClick={() => handleCheckout(false)}
-//                 >
-//                   Pay without Print (Pending)
-//                 </button>
-//                 <button
-//                   onClick={clearCart}
-//                   className="w-full bg-red-500 text-white py-1.5 rounded text-xs font-medium hover:bg-red-600 transition-colors"
-//                 >
-//                   Clear Cart
-//                 </button>
-//               </div>
-//             )}
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
 import { useState, useEffect } from "react";
 import { useCategories } from "@/hooks/useCategories";
 import { useItems } from "@/hooks/useItems";
@@ -327,12 +19,17 @@ export default function POS() {
   const { categories } = useCategories();
   const [selectedCategory, setSelectedCategory] = useState(null);
 
-  const [discount, setDiscount] = useState(0);
-  const [serviceCharges, setServiceCharges] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState("cash"); // 'cash' or 'online'
+  const { order } = useActiveOrder();
+
+  const [discount, setDiscount] = useState(order?.discount_amount || 0);
+  const [serviceCharges, setServiceCharges] = useState(
+    order?.service_charges || 0,
+  );
+  const [paymentMethod, setPaymentMethod] = useState(
+    order?.payment_method || "cash",
+  ); // 'cash' or 'online'
   const [customer, setCustomer] = useState(null);
 
-  const { order, setOrder } = useActiveOrder();
   const { items } = useItems(selectedCategory);
 
   const {
@@ -427,6 +124,81 @@ export default function POS() {
     }
   };
 
+  // Auto-saves financial metadata (discount, service charges, payment method, tax) to backend
+  const syncOrderMetadata = async (overrides = {}) => {
+    try {
+      if (!order?.id) return;
+
+      // Merge current state with any immediate change overrides
+      const updatedPaymentMethod = overrides.paymentMethod ?? paymentMethod;
+      const updatedDiscount = overrides.discount ?? discountAmount;
+      const updatedServiceCharges =
+        overrides.serviceCharges ?? serviceChargeAmount;
+
+      // Calculate tax based on payment method
+      const pct = updatedPaymentMethod === "cash" ? 0.1 : 0.06;
+      const calculatedTax = subTotal * pct;
+      const calculatedTotal = Math.max(
+        0,
+        subTotal - updatedDiscount + updatedServiceCharges + calculatedTax,
+      );
+
+      const payload = {
+        orderId: order.id,
+        customerId: customer?.id || null,
+        customerName: customer?.name || "Walk-in",
+        paymentMethod: updatedPaymentMethod,
+        subtotal: subTotal,
+        discount: updatedDiscount,
+        serviceCharges: updatedServiceCharges,
+        kpraTax: calculatedTax,
+        kpraPercentage: pct * 100,
+        total: calculatedTotal,
+        status: "pending", // Keeps order active without completing it
+      };
+
+      // Save to database via your existing endpoint
+      await API.orders.checkout({ ...payload });
+    } catch (err) {
+      console.error("Failed to sync order metadata:", err);
+    }
+  };
+
+  // Payment Method Change
+  const handlePaymentMethodChange = (e) => {
+    const newMethod = e.target.value;
+    setPaymentMethod(newMethod);
+    syncOrderMetadata({ paymentMethod: newMethod });
+  };
+
+  // Discount Change
+  const handleDiscountChange = (e) => {
+    const newDiscount = Number(e.target.value) || 0;
+    setDiscount(newDiscount);
+    syncOrderMetadata({ discount: newDiscount });
+  };
+
+  // Service Charges Change
+  const handleServiceChargeChange = (e) => {
+    const newServiceCharges = Number(e.target.value) || 0;
+    setServiceCharges(newServiceCharges);
+    syncOrderMetadata({ serviceCharges: newServiceCharges });
+  };
+
+  // if (!order) {
+  //   return (
+  //     <div className="h-full flex flex-col overflow-hidden p-4 bg-gray-50">
+  //       <PageHeader title={t.pos} actionLabel={t.pos} subtitle={t.pos_title} />
+  //       <div className="p-12 text-center text-gray-500 bg-white rounded-xl shadow-sm mt-4 border border-gray-200">
+  //         <p className="text-lg font-medium">No active table selected</p>
+  //         <p className="text-xs text-gray-400 mt-1">
+  //           Please select an active order or table to begin.
+  //         </p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
+
   if (!order) {
     return (
       <div className="h-full flex flex-col overflow-hidden p-4 bg-gray-50">
@@ -436,10 +208,27 @@ export default function POS() {
           <p className="text-xs text-gray-400 mt-1">
             Please select an active order or table to begin.
           </p>
+
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <button
+              onClick={() => navigate("/tables")}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer shadow-sm"
+            >
+              Go to Tables
+            </button>
+            <button
+              onClick={() => navigate("/orders")}
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors cursor-pointer border border-gray-300"
+            >
+              Go to Orders
+            </button>
+          </div>
         </div>
       </div>
     );
   }
+
+  // console.log("order", order);
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-gray-50">
@@ -575,6 +364,7 @@ export default function POS() {
                 Customer (optional)
               </label>
               <input
+                disabled
                 className="w-full border border-gray-300 p-1.5 rounded-lg text-xs mt-1 bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none"
                 placeholder="Walk-in / Search customer"
                 value={customer?.name || ""}
@@ -592,7 +382,8 @@ export default function POS() {
               <select
                 className="w-full border border-gray-300 p-1.5 rounded-lg text-xs mt-1 bg-white font-medium focus:ring-1 focus:ring-blue-500 focus:outline-none cursor-pointer"
                 value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
+                // onChange={(e) => setPaymentMethod(e.target.value)}
+                onChange={(e) => handlePaymentMethodChange(e)}
               >
                 <option value="cash">Cash (10% KPRA)</option>
                 <option value="online">Online (6% KPRA)</option>
@@ -609,7 +400,8 @@ export default function POS() {
                   type="number"
                   className="w-full border border-gray-300 p-1.5 rounded-lg text-xs mt-1 bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none"
                   value={discount}
-                  onChange={(e) => setDiscount(Number(e.target.value))}
+                  onChange={(e) => handleDiscountChange(e)}
+                  // onChange={(e) => setDiscount(Number(e.target.value))}
                   placeholder="0"
                 />
               </div>
@@ -621,7 +413,8 @@ export default function POS() {
                   type="number"
                   className="w-full border border-gray-300 p-1.5 rounded-lg text-xs mt-1 bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none"
                   value={serviceCharges}
-                  onChange={(e) => setServiceCharges(Number(e.target.value))}
+                  onChange={(e) => handleServiceChargeChange(e)}
+                  // onChange={(e) => setServiceCharges(Number(e.target.value))}
                   placeholder="0"
                 />
               </div>

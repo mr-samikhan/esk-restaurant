@@ -200,7 +200,7 @@ export const generateReceipt = (saleData = {}) => {
   const discount = safeNum(saleData.discount || saleData.discount_amount || 0);
 
   // KPRA Tax calculation
-  const kpraRate = safeNum(saleData.kpra_tax_rate || settings.kpra_tax_rate);
+  const kpraRate = safeNum(saleData.kpra_percentage || settings.kpra_tax_rate);
   const kpraTax =
     saleData.kpra_tax !== undefined
       ? safeNum(saleData.kpra_tax)
@@ -520,10 +520,7 @@ export const generateReceipt = (saleData = {}) => {
       <div class="barcode-container">
         <svg id="barcode"></svg>
       </div>
-
-      <div class="footer">
-        Thank you for shopping with us!
-      </div>
+       
 
       <div class="software-credit">
         Software by ESK TECH 03443777814

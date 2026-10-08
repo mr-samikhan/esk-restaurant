@@ -152,9 +152,17 @@ import { useOrderModal } from "../hooks/useOrderModal";
 import { generateReceipt } from "../lib/receipt-generator";
 import { API } from "../constants/apiEndPoints";
 import { useSettings } from "../hooks/useSettings";
+import { useActiveOrder } from "../hooks/useActiveOrder";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function Orders() {
+  const { isAdmin } = useAuth();
+  // console.log("isAdmin", isAdmin);
+
   const { orders, updateStatus, deleteOrder } = useOrders();
+  const navigate = useNavigate();
+  const { setOrder } = useActiveOrder();
   const { openModal } = useOrderModal();
   const { settings } = useSettings();
 
@@ -315,6 +323,26 @@ export default function Orders() {
                   >
                     Edit / Checkout
                   </button> */}
+                  <button
+                    onClick={async () => {
+                      // console.log("Opening POS for order:", order);
+                      // return;
+                      const res = await API.orders.getOrCreate(
+                        order.table_id,
+                        order.table_name,
+                      );
+
+                      if (res?.order) {
+                        setOrder(res.order);
+                        navigate("/pos");
+                      } else {
+                        alert("Could not open order for this table.");
+                      }
+                    }}
+                    className="bg-gray-800 hover:bg-gray-900 text-white px-2.5 py-1.5 rounded text-xs font-medium transition-colors"
+                  >
+                    Edit / Checkout
+                  </button>
 
                   <button
                     onClick={() => handlePreviewReceipt(order)}
@@ -338,14 +366,16 @@ export default function Orders() {
                   >
                     Mark Paid
                   </button>
-
-                  <button
-                    onClick={() => deleteOrder(order.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1.5 rounded text-xs font-medium transition-colors ml-auto"
-                    title="Delete Order"
-                  >
-                    Delete
-                  </button>
+                  {isAdmin && (
+                    <button
+                      // disabled={!isAdmin}
+                      onClick={() => deleteOrder(order.id)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1.5 rounded text-xs font-medium transition-colors ml-auto"
+                      title="Delete Order"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             );

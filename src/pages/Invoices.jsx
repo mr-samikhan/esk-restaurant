@@ -5,8 +5,10 @@ import ReceiptPreviewModal from "../components/pos/ReceiptPreviewModal";
 import { generateReceipt } from "../lib/receipt-generator";
 import { API } from "../constants/apiEndPoints";
 import { useSettings } from "../hooks/useSettings";
+import { useAuth } from "../lib/AuthContext";
 
 function Invoices() {
+  const { isAdmin } = useAuth();
   const { invoices, loading, deleteInvoice, refetch } = useInvoices();
   const { settings } = useSettings();
 
@@ -709,6 +711,7 @@ function Invoices() {
                     </button>
 
                     <button
+                      disabled={!isAdmin}
                       onClick={() => handleDeleteInvoice(invoice)}
                       className="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white text-[11px] font-semibold py-1.5 px-2 rounded transition-colors border border-red-200 hover:border-red-600"
                       title="Delete Invoice"

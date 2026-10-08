@@ -34,6 +34,20 @@ export default function Dashboard() {
   const { symbol } = useCurrency();
 
   useEffect(() => {
+    // Trigger silent daily auto backup on launch
+    dbService.runAutoBackup?.(7).then((res) => {
+      if (res?.success) {
+        console.log("Daily auto-backup completed successfully.");
+      } else {
+        console.error(
+          "Daily auto-backup failed:",
+          res?.error || "Unknown error",
+        );
+      }
+    });
+  }, []);
+
+  useEffect(() => {
     dbService.getSettings().then((s) => setLang(s.language || "en"));
   }, []);
 
